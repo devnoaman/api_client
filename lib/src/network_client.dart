@@ -1,4 +1,7 @@
 import 'package:api_client/api_client.dart';
+import 'package:api_client/src/authentication_mangament.dart';
+import 'package:api_client/src/token_mangament.dart';
+import 'package:api_client/src/utils/auth_interceptor.dart';
 import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 
@@ -25,7 +28,10 @@ class NetworkClient {
         );
       }
       // Call the private initialization method on the singleton instance.
-      _instance._initializeClient(baseUrl ?? Configuration.baseUrl);
+      _instance._initializeClient(
+        baseUrl ?? Configuration.baseUrl,
+        headers: Configuration.headers,
+      );
     } else {
       // If already initialized, and a baseUrl is provided again, you might
       // want to print a warning, throw an error, or simply ignore it.
@@ -40,7 +46,13 @@ class NetworkClient {
 
   // Private method to initialize the Dio client.
   // It's prefixed with '_' to make it private to the class.
-  void _initializeClient(String baseUrl) {
+  void _initializeClient(
+    String baseUrl, {
+    required Map<String, String> headers,
+  }) {
+    // var authManager = AuthManager.instance;
+
+    //  var user = await authManager.me();
     _dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
@@ -49,6 +61,7 @@ class NetworkClient {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          // 'Authorization': ' Bearer $accessToken',
         },
       ),
     );
@@ -58,7 +71,16 @@ class NetworkClient {
     // _dio!.interceptors.add(
     //   LogInterceptor(requestBody: true, responseBody: true),
     // );
-    _dio!.interceptors.add(AwesomeDioInterceptor());
+
+    // adding interceptor for authentication to handle refresh tokens when headers contains www-authenticate: [Bearer error="invalid_token", error_description="The token expired at '08/05/2025 18:20:38'"]
+
+    // _dio!.interceptors.add(
+    //   AwesomeDioInterceptor(),
+    // );
+    _dio?.interceptors.addAll([
+      AwesomeDioInterceptor(),
+      AuthInterceptor(_dio!, () async {}, (m) {}),
+    ]);
   }
 
   // Getter to provide the initialized Dio client

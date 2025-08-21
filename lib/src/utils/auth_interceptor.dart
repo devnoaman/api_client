@@ -1,9 +1,11 @@
 // lib/auth/auth_interceptor.dart
+import 'dart:developer';
+
 import 'package:api_client/api_client.dart';
+import 'package:api_client/src/token_mangament.dart';
+import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
 
 // Define these typedefs so they can be imported and used for dependency injection.
 typedef LogoutCallback = Future<void> Function();
@@ -20,7 +22,7 @@ typedef ShowMessageCallback = void Function(String message);
 /// 6. If the token refresh fails, it triggers a global logout flow.
 class AuthInterceptor extends Interceptor {
   final Dio _dio;
-  final FlutterSecureStorage _secureStorage;
+  // final FlutterSecureStorage _secureStorage;
   final LogoutCallback _onLogout;
   final ShowMessageCallback _onShowMessage;
 
@@ -33,7 +35,7 @@ class AuthInterceptor extends Interceptor {
 
   AuthInterceptor(
     this._dio,
-    this._secureStorage,
+    // this._secureStorage,
     this._onLogout,
     this._onShowMessage,
   );
@@ -46,13 +48,14 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    log('req: ${options.path}');
     // Do not add the Authorization header to the refresh token request itself,
     // as it typically uses the refresh token in its body for authentication.
-    if (options.path.contains('/auth/refresh')) {
+    if (options.path.contains(Configuration.refreshUrl)) {
       return handler.next(options);
     }
 
-    final accessToken = await _secureStorage.read(key: 'accessToken');
+    final accessToken = await TokensManager.instance.retriveAccess();
 
     if (accessToken != null) {
       // The proactive check from the original code was removed because relying
@@ -70,7 +73,7 @@ class AuthInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // Check if the error is a 401 Unauthorized and it's not from the refresh endpoint.
     if (err.response?.statusCode == 401 &&
-        !err.requestOptions.path.contains('/auth/refresh')) {
+        !err.requestOptions.path.contains(Configuration.refreshUrl)) {
       debugPrint(
         'AuthInterceptor: 401 Unauthorized detected for ${err.requestOptions.path}',
       );
@@ -101,6 +104,8 @@ class AuthInterceptor extends Interceptor {
         debugPrint(
           'AuthInterceptor: Token refreshed. Retrying original request.',
         );
+        // TokensManager.instance.saveAccess(accessToken);
+        // TokensManager.instance.saveRefresh(accessToken);
         err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
 
         // Use dio.fetch to retry the request with the updated options.
@@ -128,7 +133,8 @@ class AuthInterceptor extends Interceptor {
   ///
   /// Returns the new access token on success, or null on failure.
   Future<String?> _performTokenRefresh() async {
-    final refreshToken = await _secureStorage.read(key: 'refreshToken');
+    final refreshToken = await TokensManager.instance.retriveRefresh();
+    final accessToken = await TokensManager.instance.retriveAccess();
 
     if (refreshToken == null) {
       debugPrint(
@@ -144,28 +150,33 @@ class AuthInterceptor extends Interceptor {
         baseUrl: _dio.options.baseUrl,
         connectTimeout: _dio.options.connectTimeout,
         receiveTimeout: _dio.options.receiveTimeout,
+        headers: {'Authorization': 'Bearer $accessToken'},
       ),
-    );
+    )..interceptors.addAll([AwesomeDioInterceptor()]);
+    // refreshDio.interceptors.addAll([AwesomeDioInterceptor()]);
 
     try {
       debugPrint('AuthInterceptor: Sending refresh token request...');
       final response = await refreshDio.post(
         Configuration.refreshUrl, // Your backend's refresh token endpoint
         data: {'refreshToken': refreshToken},
+        // options: Options(headers: ),
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final newAccessToken = response.data['accessToken'] as String?;
+        final newAccessToken =
+            response.data[Configuration.tokenKeyName] as String?;
         final newRefreshToken = response.data['refreshToken'] as String?;
 
         if (newAccessToken != null) {
-          await _secureStorage.write(key: 'accessToken', value: newAccessToken);
+          await TokensManager.instance.saveAccess(newAccessToken);
           if (newRefreshToken != null) {
             // If the backend provides a new refresh token (rotation), store it.
-            await _secureStorage.write(
-              key: 'refreshToken',
-              value: newRefreshToken,
-            );
+            // await _secureStorage.write(
+            //   key: 'refreshToken',
+            //   value: newRefreshToken,
+            // );
+            await TokensManager.instance.saveRefresh(newRefreshToken);
           }
           debugPrint('AuthInterceptor: Token refreshed successfully!');
           return newAccessToken;
@@ -192,7 +203,8 @@ class AuthInterceptor extends Interceptor {
   ///
   /// This clears all stored tokens and triggers the app-wide logout callback.
   Future<void> _handleRefreshFailure() async {
-    await _secureStorage.deleteAll();
+    // await _secureStorage.deleteAll();
+    // await TokensManager.instance.deleteAll();
     _onShowMessage('Your session has expired. Please log in again.');
     await _onLogout();
   }

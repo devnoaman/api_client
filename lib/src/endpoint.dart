@@ -1,30 +1,76 @@
 import 'dart:developer';
 
+import 'package:api_client/api_client.dart';
 import 'package:api_client/src/network_client.dart';
+import 'package:api_client/src/token_mangament.dart';
 import 'package:dio/dio.dart';
+
+/// Enumeration of HTTP methods for API requests.
+enum HTTPMethod { get, post, delete, put, patch }
+
+/// Extension to convert [HTTPMethod] enum values to their string representations.
+extension HTTPMethodString on HTTPMethod {
+  String get toStringName {
+    switch (this) {
+      case HTTPMethod.get:
+        return "get";
+      case HTTPMethod.post:
+        return "post";
+      case HTTPMethod.delete:
+        return "delete";
+      case HTTPMethod.patch:
+        return "patch";
+      case HTTPMethod.put:
+        return "put";
+    }
+  }
+}
 
 abstract class Endpoint<T> {
   final String path;
   Object? data;
   Map<String, dynamic>? queryParameters;
+
+  /// Optional headers to be sent with the request.
+  /// If not provided, the default headers will be used.
+  /// Default headers include the Authorization header with the access token.
+  // Map<String, dynamic>? headers;
   Options? options;
+  HTTPMethod? method;
+
+  /// Indicates whether the request requires authentication.
+  /// If true, the Authorization header will be included with the access token.
+  /// If false, the request will be made without authentication.
+  /// Default is false.
+  bool? authenticated = false;
   CancelToken? cancelToken;
   void Function(int, int)? onReceiveProgress;
   final T Function(dynamic data) responseDecoder;
 
   Endpoint({
     required this.path,
+    this.data,
     required this.responseDecoder,
+    this.authenticated = false,
+    this.method = HTTPMethod.get,
   });
 
   /// Performs a GET request and uses the configured decoder.
+  @Deprecated('use call instead,change http method type via method param')
   Future<T?> get() async {
+    var tokern = TokensManager.instance;
+    var accessToken = await tokern.retriveAccess();
     final client = NetworkClient().dioClient;
+    client.options.headers.addAll({
+      'Authorization': ' Bearer $accessToken',
+      // ...?headers,
+    });
     try {
       final response = await client.get(
         path,
         data: data,
         queryParameters: queryParameters,
+
         options: options,
         cancelToken: cancelToken,
       );
@@ -32,11 +78,47 @@ abstract class Endpoint<T> {
         return responseDecoder(response.data);
       }
       return null;
-    } on DioException catch (e) {
-      log('Dio error on GET request to $path: ${e.message}');
-      return null;
-    } catch (e) {
+    } catch (e, s) {
       log('Unexpected error on GET request to $path: $e');
+      log('stacktrace to is: $s');
+      return null;
+    }
+  }
+
+  Future<T?> call() async {
+    final client = NetworkClient().dioClient;
+    var tokern = TokensManager.instance;
+    var accessToken = await tokern.retriveAccess();
+    if (authenticated ?? false) {
+      client.options.headers.addAll({
+        'Authorization': ' Bearer $accessToken',
+        // ...?headers,
+      });
+    }
+    try {
+      final response = await client.request(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+
+        options: Options(
+          method: method?.toStringName,
+        ),
+
+        //  options?.copyWith(
+        //   method: method?.toStringName,
+        // ),
+        cancelToken: cancelToken,
+        onReceiveProgress: onReceiveProgress,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        return responseDecoder(response.data);
+      }
+      return null;
+    } catch (e, s) {
+      log('Unexpected error on GET request to $path: $e');
+      log('stacktrace to is: $s');
       return null;
     }
   }
