@@ -50,6 +50,7 @@ abstract class Endpoint<T> {
   Endpoint({
     required this.path,
     this.data,
+    this.queryParameters,
     required this.responseDecoder,
     this.authenticated = false,
     this.method = HTTPMethod.get,
@@ -85,7 +86,9 @@ abstract class Endpoint<T> {
     }
   }
 
-  Future<T?> call() async {
+  Future<dynamic> call([
+    Map<String, dynamic>? queryParameter,
+  ]) async {
     final client = NetworkClient().dioClient;
     var tokern = TokensManager.instance;
     var accessToken = await tokern.retriveAccess();
@@ -99,7 +102,7 @@ abstract class Endpoint<T> {
       final response = await client.request(
         path,
         data: data,
-        queryParameters: queryParameters,
+        queryParameters: queryParameter ?? queryParameters,
 
         options: Options(
           method: method?.toStringName,
@@ -115,7 +118,7 @@ abstract class Endpoint<T> {
       if (response.statusCode == 200 && response.data != null) {
         return responseDecoder(response.data);
       }
-      return null;
+      return response;
     } catch (e, s) {
       log('Unexpected error on GET request to $path: $e');
       log('stacktrace to is: $s');

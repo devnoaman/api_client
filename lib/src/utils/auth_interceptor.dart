@@ -62,7 +62,20 @@ class AuthInterceptor extends Interceptor {
       // on the 401 `onError` handler is a simpler and more robust pattern.
       options.headers['Authorization'] = 'Bearer $accessToken';
     }
+    if (options.data is FormData) {
+      // Clone the form data fields and files to re-create it later
+      final formData = options.data as FormData;
+      final Map<String, dynamic> formDataMap = {};
 
+      // Copy fields
+      formDataMap.addEntries(formData.fields);
+
+      // Copy files
+      formDataMap.addEntries(formData.files);
+
+      // Store this map in 'extra' so we can access it in onError
+      options.extra['formData'] = formDataMap;
+    }
     return handler.next(options);
   }
 
@@ -104,23 +117,42 @@ class AuthInterceptor extends Interceptor {
         debugPrint(
           'AuthInterceptor: Token refreshed. Retrying original request.',
         );
-        // TokensManager.instance.saveAccess(accessToken);
-        // TokensManager.instance.saveRefresh(accessToken);
-        err.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
 
-        // Use dio.fetch to retry the request with the updated options.
-        final response = await _dio.fetch(err.requestOptions);
+        final options = err.requestOptions;
+        options.headers['Authorization'] = 'Bearer $newAccessToken';
+
+        // // Step 3: Re-create FormData if it was the original data type
+        // if (options.extra.containsKey('formData')) {
+        //   final formDataMap = options.extra['formData'] as Map<String, dynamic>;
+        //   // ✨ This is the key part: create a NEW FormData object ✨
+        //   options.data = FormData.fromMap(formDataMap);
+        // }
+
+        // 3. Handle FormData and clone MultipartFiles
+        if (options.data is FormData) {
+          final oldFormData = options.data as FormData;
+          final newFormDataMap = <String, dynamic>{};
+
+          // Copy regular fields
+          newFormDataMap.addEntries(oldFormData.fields);
+
+          // ✨ Clone each MultipartFile before adding to the new map ✨
+          for (var mapEntry in oldFormData.files) {
+            newFormDataMap[mapEntry.key] = mapEntry.value.clone();
+          }
+
+          // Create a new FormData object with the cloned files
+          options.data = FormData.fromMap(newFormDataMap);
+        }
+        final response = await _dio.fetch(options);
         return handler.resolve(response);
       } catch (e) {
-        // If any error happens during the refresh or retry, logout.
         debugPrint(
           'AuthInterceptor: Exception during token refresh/retry logic: $e',
         );
         await _handleRefreshFailure();
         return handler.next(err);
       } finally {
-        // IMPORTANT: Clear the future so new refresh requests can be initiated.
-        // This allows the next 401 error to trigger a new refresh.
         refreshTokenFuture = null;
       }
     }

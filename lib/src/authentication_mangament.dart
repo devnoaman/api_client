@@ -124,7 +124,7 @@ class AuthManager {
         }
       }
     }
-    return null; // Key not found
+    return null;
   }
 
   Future logout({
