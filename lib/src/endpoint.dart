@@ -106,6 +106,7 @@ abstract class Endpoint<T> {
 
         options: Options(
           method: method?.toStringName,
+          headers: Configuration.headers,
         ),
 
         //  options?.copyWith(
@@ -123,6 +124,60 @@ abstract class Endpoint<T> {
       log('Unexpected error on GET request to $path: $e');
       log('stacktrace to is: $s');
       return null;
+    }
+  }
+
+  Future<ResponseState> callWithResult([
+    Map<String, dynamic>? queryParameter,
+  ]) async {
+    final client = NetworkClient().dioClient;
+    var tokern = TokensManager.instance;
+    var accessToken = await tokern.retriveAccess();
+    if (authenticated ?? false) {
+      client.options.headers.addAll({
+        'Authorization': ' Bearer $accessToken',
+        // ...?headers,
+      });
+    }
+    try {
+      final response = await client.request(
+        path,
+        data: data,
+        queryParameters: queryParameter ?? queryParameters,
+
+        options: Options(
+          method: method?.toStringName,
+        ),
+
+        //  options?.copyWith(
+        //   method: method?.toStringName,
+        // ),
+        cancelToken: cancelToken,
+        onReceiveProgress: onReceiveProgress,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        return Success(responseDecoder(response.data));
+      }
+      return Success(data);
+    } on DioException catch (e, s) {
+      log('Unexpected error on GET request to $path: $e');
+      log('stacktrace to is: $s');
+      return Failed(
+        e,
+        s,
+        null,
+        e.response?.data,
+      );
+    } catch (e, s) {
+      log('Unexpected error on GET request to $path: $e');
+      log('stacktrace to is: $s');
+      return Failed(
+        e,
+        s,
+        null,
+        data,
+      );
     }
   }
 }

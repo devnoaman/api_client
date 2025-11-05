@@ -8,4 +8,6 @@ class Configuration {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
+  static Map<String, String>? refreshData;
+  static Map<String, String>? logoutData;
 }
