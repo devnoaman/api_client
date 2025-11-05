@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
@@ -12,13 +13,54 @@ typedef AuthenticationDecoder<T> = T Function(dynamic data);
 typedef LoginDecoder<T> = T Function(dynamic data);
 typedef RefreshErrorHandler<T> = void Function(T data);
 
+// AuthManagerStreamEvent
+
+enum AuthManagerEventType {
+  loggedIn,
+  loggedOut,
+  tokenRefreshed,
+  refreshFailed,
+  tokenExpired,
+  sessionExpired,
+}
+
+class AuthManagerStreamEvent<T> {
+  final AuthManagerEventType type;
+  final T? data;
+  final Object? error;
+
+  AuthManagerStreamEvent(this.type, {this.data, this.error});
+
+  @override
+  String toString() =>
+      'AuthManagerStreamEvent(type: $type, data: $data, error: $error)';
+}
+
 class AuthManager {
   // Static private instance is now of a non-generic type.
   // static AuthManager _instance;
 
   // Private constructor remains the same.
   AuthManager._();
+  //
+  //
+  final _authManagerStreamController =
+      StreamController<AuthManagerStreamEvent>.broadcast();
+  Stream<AuthManagerStreamEvent> get authManagerStream =>
+      _authManagerStreamController.stream;
 
+  void emitAuthManagerEvent(AuthManagerStreamEvent event) {
+    log('Emitting AuthManager event: $event');
+    _authManagerStreamController.add(event);
+  }
+
+  // Add dispose method
+  Future<void> dispose() async {
+    await _authManagerStreamController.close();
+  }
+
+  // Add method to check if controller is closed
+  bool get isDisposed => _authManagerStreamController.isClosed;
   static RefreshErrorHandler? onRefreshError;
 
   // static AuthManager<T> instance = _instance<T>;
@@ -43,6 +85,7 @@ class AuthManager {
     required String path,
     required Map<String, dynamic> data,
     required AuthenticationDecoder decoder,
+
   }) async {
     final client = NetworkClient().dioClient;
     // var baseUrl = Configuration.baseUrl;
