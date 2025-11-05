@@ -56,8 +56,15 @@ class NetworkClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
-        connectTimeout: const Duration(seconds: 10), // 10 seconds
-        receiveTimeout: const Duration(seconds: 10), // 10 seconds
+        connectTimeout:
+            Configuration.connectTimeout ??
+            const Duration(seconds: 10), // 10 seconds
+        receiveTimeout:
+            Configuration.receiveTimeout ??
+            const Duration(seconds: 10), // 10 seconds
+        sendTimeout:
+            Configuration.sendTimeout ??
+            const Duration(seconds: 10), // 10 seconds
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
