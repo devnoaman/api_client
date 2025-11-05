@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
@@ -12,29 +11,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 typedef AuthenticationDecoder<T> = T Function(dynamic data);
 typedef LoginDecoder<T> = T Function(dynamic data);
 typedef RefreshErrorHandler<T> = void Function(T data);
-
-// AuthManagerStreamEvent
-
-enum AuthManagerEventType {
-  loggedIn,
-  loggedOut,
-  tokenRefreshed,
-  refreshFailed,
-  tokenExpired,
-  sessionExpired,
-}
-
-class AuthManagerStreamEvent<T> {
-  final AuthManagerEventType type;
-  final T? data;
-  final Object? error;
-
-  AuthManagerStreamEvent(this.type, {this.data, this.error});
-
-  @override
-  String toString() =>
-      'AuthManagerStreamEvent(type: $type, data: $data, error: $error)';
-}
 
 class AuthManager {
   // Static private instance is now of a non-generic type.
@@ -61,25 +37,6 @@ class AuthManager {
   // A public static getter to allow other classes to access the storage instance.
   // You can now use `AuthManager.storage` from anywhere in your app.
   // static FlutterSecureStorage get storage => _storage;
-  //
-  //
-  final _authManagerStreamController =
-      StreamController<AuthManagerStreamEvent>.broadcast();
-  Stream<AuthManagerStreamEvent> get authManagerStream =>
-      _authManagerStreamController.stream;
-
-  void emitAuthManagerEvent(AuthManagerStreamEvent event) {
-    log('Emitting AuthManager event: $event');
-    _authManagerStreamController.add(event);
-  }
-
-  // Add dispose method
-  Future<void> dispose() async {
-    await _authManagerStreamController.close();
-  }
-
-  // Add method to check if controller is closed
-  bool get isDisposed => _authManagerStreamController.isClosed;
 
   // Your methods can now use the responseDecoder.
   Future login({
@@ -180,6 +137,7 @@ class AuthManager {
     Object? data,
     required AuthenticationDecoder decoder,
     bool callApi = true,
+    bool? authenticated = false,
   }) async {
     // final client = NetworkClient().dioClient;
     final client = NetworkClient().dioClient;
@@ -190,8 +148,10 @@ class AuthManager {
       await userManager.remove();
       return;
     }
+    var token = (user != null) ? findAccessToken(user) as String : null;
+
     try {
-      var ob = Options(headers: {'Authorization': 'Bearer ${user!['token']}'});
+      var ob = Options(headers: {'Authorization': 'Bearer $token'});
       var response = await client.post(
         path,
         data: data ?? Configuration.logoutData,

@@ -10,4 +10,7 @@ class Configuration {
   };
   static Map<String, String>? refreshData;
   static Map<String, String>? logoutData;
+  static Duration? connectTimeout = const Duration(seconds: 30);
+  static Duration? receiveTimeout = const Duration(seconds: 30);
+  static Duration? sendTimeout = const Duration(seconds: 30);
 }

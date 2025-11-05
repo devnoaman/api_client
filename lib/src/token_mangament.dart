@@ -1,3 +1,4 @@
+import 'package:api_client/api_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class TokensManager {
@@ -53,5 +54,49 @@ class TokensManager {
 
   Future<void> deleteAll() async {
     await _storage.deleteAll();
+  }
+
+  Object? findAccessToken(dynamic data) {
+    if (data is Map) {
+      if (data.containsKey(Configuration.tokenKeyName)) {
+        return data[Configuration.tokenKeyName];
+      }
+      for (var value in data.values) {
+        final result = findAccessToken(value);
+        if (result != null) {
+          return result;
+        }
+      }
+    } else if (data is List) {
+      for (var item in data) {
+        final result = findAccessToken(item);
+        if (result != null) {
+          return result;
+        }
+      }
+    }
+    return null; // Key not found
+  }
+
+  Object? findRefreshToken(dynamic data) {
+    if (data is Map) {
+      if (data.containsKey(Configuration.refreshTokenKeyName)) {
+        return data[Configuration.refreshTokenKeyName];
+      }
+      for (var value in data.values) {
+        final result = findRefreshToken(value);
+        if (result != null) {
+          return result;
+        }
+      }
+    } else if (data is List) {
+      for (var item in data) {
+        final result = findRefreshToken(item);
+        if (result != null) {
+          return result;
+        }
+      }
+    }
+    return null;
   }
 }
