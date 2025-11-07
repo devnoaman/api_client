@@ -1,5 +1,9 @@
-export './src/configuration.dart';
-export './src/endpoint.dart';
 export './src/auth_manager.dart';
 export './src/authentication_mangament.dart';
+export './src/configuration.dart';
+export './src/endpoint.dart';
+export './src/exceptions_watcher.dart';
 export './src/models/response_state.dart';
+export 'package:sentry/sentry.dart' show Sentry;
+export 'package:sentry_flutter/sentry_flutter.dart' show SentryFlutter;
+export './src/client/controller/controller_impl.dart';

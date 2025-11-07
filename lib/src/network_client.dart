@@ -4,6 +4,7 @@ import 'package:api_client/src/token_mangament.dart';
 import 'package:api_client/src/utils/auth_interceptor.dart';
 import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
+import 'package:sentry_dio/sentry_dio.dart';
 
 class NetworkClient {
   // Private constructor to enforce the singleton pattern
@@ -88,6 +89,8 @@ class NetworkClient {
       AwesomeDioInterceptor(),
       AuthInterceptor(_dio!, () async {}, (m) {}),
     ]);
+
+     _dio?.addSentry();
   }
 
   // Getter to provide the initialized Dio client
