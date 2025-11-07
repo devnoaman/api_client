@@ -1,31 +1,18 @@
 import 'dart:developer';
 
-import 'package:api_client/api_client.dart';
-import 'package:api_client/src/network_client.dart';
-import 'package:api_client/src/token_mangament.dart';
+import '../api_client.dart';
+import 'client/http_method.dart';
+import 'network_client.dart';
+import 'token_mangament.dart';
 import 'package:dio/dio.dart';
 
-/// Enumeration of HTTP methods for API requests.
-enum HTTPMethod { get, post, delete, put, patch }
 
-/// Extension to convert [HTTPMethod] enum values to their string representations.
-extension HTTPMethodString on HTTPMethod {
-  String get toStringName {
-    switch (this) {
-      case HTTPMethod.get:
-        return "get";
-      case HTTPMethod.post:
-        return "post";
-      case HTTPMethod.delete:
-        return "delete";
-      case HTTPMethod.patch:
-        return "patch";
-      case HTTPMethod.put:
-        return "put";
-    }
-  }
-}
 
+
+/// Abstract class representing an API endpoint.
+///]
+//
+@Deprecated('Use EndpointImpl instead')
 abstract class Endpoint<T> {
   final String path;
   Object? data;
@@ -57,7 +44,9 @@ abstract class Endpoint<T> {
   });
 
   /// Performs a GET request and uses the configured decoder.
-  @Deprecated('use call instead,change http method type via method param')
+  @Deprecated(
+    'use [call]/[callWithResult] instead,change http method type via method param',
+  )
   Future<T?> get() async {
     var tokern = TokensManager.instance;
     var accessToken = await tokern.retriveAccess();
@@ -103,19 +92,18 @@ abstract class Endpoint<T> {
         path,
         data: data,
         queryParameters: queryParameter ?? queryParameters,
-
-        options: Options(
-          method: method?.toStringName,
-          headers: Configuration.headers,
-        ),
-
-        //  options?.copyWith(
-        //   method: method?.toStringName,
-        // ),
+        options: options == null
+            ? Options(
+                method: method?.toStringName,
+                headers: Configuration.headers,
+              )
+            : options?.copyWith(
+                method: method?.toStringName,
+                headers: options?.headers ?? Configuration.headers,
+              ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
       );
-
       if (response.statusCode == 200 && response.data != null) {
         return responseDecoder(response.data);
       }
@@ -136,7 +124,6 @@ abstract class Endpoint<T> {
     if (authenticated ?? false) {
       client.options.headers.addAll({
         'Authorization': ' Bearer $accessToken',
-        // ...?headers,
       });
     }
     try {
@@ -144,14 +131,15 @@ abstract class Endpoint<T> {
         path,
         data: data,
         queryParameters: queryParameter ?? queryParameters,
-
-        options: Options(
-          method: method?.toStringName,
-        ),
-
-        //  options?.copyWith(
-        //   method: method?.toStringName,
-        // ),
+        options: options == null
+            ? Options(
+                method: method?.toStringName,
+                headers: Configuration.headers,
+              )
+            : options?.copyWith(
+                method: method?.toStringName,
+                headers: options?.headers ?? Configuration.headers,
+              ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
       );
