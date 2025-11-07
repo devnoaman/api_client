@@ -218,17 +218,10 @@ class AuthInterceptor extends Interceptor {
       debugPrint(
         'AuthInterceptor: Refresh token API call failed: Status ${response.statusCode}, Data: ${response.data}',
       );
-
       return null;
     } on DioException catch (e) {
       debugPrint(
         'AuthInterceptor: Dio error during refresh token API call: ${e.message}',
-      );
-      AuthManager.instance.emitAuthManagerEvent(
-        AuthManagerStreamEvent(
-          AuthManagerEventType.refreshFailed,
-          error: '${e.response?.data}',
-        ),
       );
       // A 401 or 403 on the refresh endpoint means the refresh token is invalid/expired.
       return null;

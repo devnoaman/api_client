@@ -42,25 +42,6 @@ class AuthManager {
 
   // Private constructor remains the same.
   AuthManager._();
-
-  static RefreshErrorHandler? onRefreshError;
-
-  // static AuthManager<T> instance = _instance<T>;
-  static final AuthManager instance = AuthManager._();
-
-  // The decoder is part of the instance state.
-  // final AuthDecoder<T> responseDecoder;
-  static const String _userKey = 'user_model';
-  static const String _tokenKey = 'token_key';
-  static Future<void> Function()? onRemove;
-
-  // static const FlutterSecureStorage _storage = FlutterSecureStorage();
-
-  static StorageManager userManager = StorageManager.instance;
-  static TokensManager tokensManager = TokensManager.instance;
-  // A public static getter to allow other classes to access the storage instance.
-  // You can now use `AuthManager.storage` from anywhere in your app.
-  // static FlutterSecureStorage get storage => _storage;
   //
   //
   final _authManagerStreamController =
@@ -80,12 +61,31 @@ class AuthManager {
 
   // Add method to check if controller is closed
   bool get isDisposed => _authManagerStreamController.isClosed;
+  static RefreshErrorHandler? onRefreshError;
+
+  // static AuthManager<T> instance = _instance<T>;
+  static final AuthManager instance = AuthManager._();
+
+  // The decoder is part of the instance state.
+  // final AuthDecoder<T> responseDecoder;
+  static const String _userKey = 'user_model';
+  static const String _tokenKey = 'token_key';
+  static Future<void> Function()? onRemove;
+
+  // static const FlutterSecureStorage _storage = FlutterSecureStorage();
+
+  static StorageManager userManager = StorageManager.instance;
+  static TokensManager tokensManager = TokensManager.instance;
+  // A public static getter to allow other classes to access the storage instance.
+  // You can now use `AuthManager.storage` from anywhere in your app.
+  // static FlutterSecureStorage get storage => _storage;
 
   // Your methods can now use the responseDecoder.
   Future login({
     required String path,
     required Map<String, dynamic> data,
     required AuthenticationDecoder decoder,
+
   }) async {
     final client = NetworkClient().dioClient;
     // var baseUrl = Configuration.baseUrl;
@@ -180,6 +180,7 @@ class AuthManager {
     Object? data,
     required AuthenticationDecoder decoder,
     bool callApi = true,
+    bool? authenticated = false,
   }) async {
     // final client = NetworkClient().dioClient;
     final client = NetworkClient().dioClient;
@@ -190,8 +191,10 @@ class AuthManager {
       await userManager.remove();
       return;
     }
+    var token = (user != null) ? findAccessToken(user) as String : null;
+
     try {
-      var ob = Options(headers: {'Authorization': 'Bearer ${user!['token']}'});
+      var ob = Options(headers: {'Authorization': 'Bearer $token'});
       var response = await client.post(
         path,
         data: data ?? Configuration.logoutData,

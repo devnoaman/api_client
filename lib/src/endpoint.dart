@@ -14,8 +14,12 @@ import 'package:dio/dio.dart';
 //
 @Deprecated('Use EndpointImpl instead')
 abstract class Endpoint<T> {
+  AuthManager get authManager => AuthManager.instance;
+  Future<bool> get isLogedIn async => await authManager.me() != null;
+
   final String path;
   Object? data;
+
   Map<String, dynamic>? queryParameters;
 
   /// Optional headers to be sent with the request.
@@ -38,9 +42,11 @@ abstract class Endpoint<T> {
     required this.path,
     this.data,
     this.queryParameters,
+
     required this.responseDecoder,
     this.authenticated = false,
     this.method = HTTPMethod.get,
+    this.options,
   });
 
   /// Performs a GET request and uses the configured decoder.
@@ -92,6 +98,7 @@ abstract class Endpoint<T> {
         path,
         data: data,
         queryParameters: queryParameter ?? queryParameters,
+
         options: options == null
             ? Options(
                 method: method?.toStringName,
@@ -101,6 +108,15 @@ abstract class Endpoint<T> {
                 method: method?.toStringName,
                 headers: options?.headers ?? Configuration.headers,
               ),
+
+        //  Options(
+        //   method: method?.toStringName,
+        //   headers: Configuration.headers,
+        // ),
+
+        //  options?.copyWith(
+        //   method: method?.toStringName,
+        // ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
       );
@@ -131,6 +147,7 @@ abstract class Endpoint<T> {
         path,
         data: data,
         queryParameters: queryParameter ?? queryParameters,
+
         options: options == null
             ? Options(
                 method: method?.toStringName,
@@ -140,6 +157,14 @@ abstract class Endpoint<T> {
                 method: method?.toStringName,
                 headers: options?.headers ?? Configuration.headers,
               ),
+
+        // Options(
+        //   method: method?.toStringName,
+        // ),
+
+        //  options?.copyWith(
+        //   method: method?.toStringName,
+        // ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
       );
