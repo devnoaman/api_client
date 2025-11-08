@@ -7,3 +7,5 @@ export './src/models/response_state.dart';
 export 'package:sentry/sentry.dart' show Sentry;
 export 'package:sentry_flutter/sentry_flutter.dart' show SentryFlutter;
 export './src/client/controller/controller_impl.dart';
+export './src/client/http_method.dart';
+export './src/client/controller/controller.dart';
