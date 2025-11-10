@@ -1,6 +1,4 @@
 import 'package:api_client/api_client.dart';
-import 'package:api_client/src/authentication_mangament.dart';
-import 'package:api_client/src/token_mangament.dart';
 import 'package:api_client/src/utils/auth_interceptor.dart';
 import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
@@ -43,6 +41,10 @@ class NetworkClient {
       // }
     }
     return _instance; // Always return the same instance
+  }
+  // initialize Dio client
+  factory NetworkClient.base() {
+    return _instance;
   }
 
   // Private method to initialize the Dio client.
@@ -90,7 +92,7 @@ class NetworkClient {
       AuthInterceptor(_dio!, () async {}, (m) {}),
     ]);
 
-     _dio?.addSentry();
+    _dio?.addSentry();
   }
 
   // Getter to provide the initialized Dio client
