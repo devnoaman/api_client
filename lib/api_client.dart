@@ -9,3 +9,4 @@ export 'package:sentry_flutter/sentry_flutter.dart' show SentryFlutter;
 export './src/client/controller/controller_impl.dart';
 export './src/client/http_method.dart';
 export './src/client/controller/controller.dart';
+export './src/network_client.dart';
