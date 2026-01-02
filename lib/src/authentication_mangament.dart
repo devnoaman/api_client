@@ -85,7 +85,6 @@ class AuthManager {
     required String path,
     required Map<String, dynamic> data,
     required AuthenticationDecoder decoder,
-
   }) async {
     final client = NetworkClient().dioClient;
     // var baseUrl = Configuration.baseUrl;
@@ -103,10 +102,10 @@ class AuthManager {
 
         print('token founded: ${token}');
         if (token != null) {
-          tokensManager.saveAccess(
+          await tokensManager.saveAccess(
             token.toString(),
           );
-          tokensManager.saveRefresh(
+          await tokensManager.saveRefresh(
             refreshToken.toString(),
           );
         }

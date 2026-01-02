@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   api_client:
     path: ../
+  flutter_hooks: ^0.21.3+1
+  hooks_riverpod: ^3.1.0
 
 dev_dependencies:
   flutter_test:

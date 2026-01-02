@@ -17,7 +17,12 @@ class StorageManager {
   // final AuthDecoder<T> responseDecoder;
   static const String _userKey = 'user_data';
   static Future<void> Function()? onRemove;
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  static const FlutterSecureStorage _storage = FlutterSecureStorage(
+    webOptions: WebOptions(
+      dbName: 'user_db',
+      publicKey: 'user_db',
+    ),
+  );
   static FlutterSecureStorage get storage => _storage;
   Future<void> save(String value) async {
     return await _storage.write(key: _userKey, value: value);
