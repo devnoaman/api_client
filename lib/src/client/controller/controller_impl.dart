@@ -1,9 +1,5 @@
 import 'dart:developer';
 import 'package:api_client/api_client.dart';
-import 'package:api_client/src/client/controller/controller.dart';
-import 'package:api_client/src/client/http_method.dart';
-import 'package:api_client/src/network_client.dart';
-import 'package:api_client/src/token_mangament.dart';
 import 'package:dio/dio.dart';
 
 base class BaseController<T> extends ApiController<T> {
@@ -11,6 +7,7 @@ base class BaseController<T> extends ApiController<T> {
     required super.path,
     super.data,
     super.queryParameters,
+    super.options,
     required super.responseDecoder,
     super.authenticated = false,
     super.method = HTTPMethod.get,
