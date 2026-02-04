@@ -92,7 +92,7 @@ class NetworkClient {
     //   AwesomeDioInterceptor(),
     // );
     _dio?.interceptors.addAll([
-      AwesomeDioInterceptor(),
+      if (Configuration.enableLogs) AwesomeDioInterceptor(),
       AuthInterceptor(_dio!, () async {}, (m) {}),
     ]);
 
