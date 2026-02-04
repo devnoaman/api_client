@@ -47,7 +47,7 @@ class MeNotifier extends StateNotifier<String> {
   me() async {
     var manager = TokensManager.instance;
     try {
-      var data = await manager.retriveAccess();
+      var data = await manager.retrieveAccess();
       state = data ?? 'not found';
     } catch (e, s) {
       print(e);

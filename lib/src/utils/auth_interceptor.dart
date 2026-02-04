@@ -1,8 +1,7 @@
 // lib/auth/auth_interceptor.dart
-import 'dart:developer';
 
 import 'package:api_client/api_client.dart';
-import 'package:api_client/src/token_mangament.dart';
+import 'package:api_client/src/utils/base_logger.dart';
 import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -25,6 +24,7 @@ class AuthInterceptor extends Interceptor {
   // final FlutterSecureStorage _secureStorage;
   final LogoutCallback _onLogout;
   final ShowMessageCallback _onShowMessage;
+  final logger = BaseLogger();
 
   /// A Future that completes when the token refresh operation is done.
   ///
@@ -48,14 +48,14 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    log('req: ${options.path}');
+    logger.info('req: ${options.path}');
     // Do not add the Authorization header to the refresh token request itself,
     // as it typically uses the refresh token in its body for authentication.
     if (options.path.contains(Configuration.refreshUrl)) {
       return handler.next(options);
     }
 
-    final accessToken = await TokensManager.instance.retriveAccess();
+    final accessToken = await TokensManager.instance.retrieveAccess();
 
     if (accessToken != null) {
       // The proactive check from the original code was removed because relying
@@ -87,7 +87,7 @@ class AuthInterceptor extends Interceptor {
     // Check if the error is a 401 Unauthorized and it's not from the refresh endpoint.
     if (err.response?.statusCode == 401 &&
         !err.requestOptions.path.contains(Configuration.refreshUrl)) {
-      debugPrint(
+      logger.info(
         'AuthInterceptor: 401 Unauthorized detected for ${err.requestOptions.path}',
       );
 
@@ -95,10 +95,10 @@ class AuthInterceptor extends Interceptor {
       // If a refresh is already in progress, `refreshTokenFuture` will not be null,
       // and subsequent requests will wait on the existing future.
       if (refreshTokenFuture == null) {
-        debugPrint('AuthInterceptor: Starting new token refresh.');
+        logger.info('AuthInterceptor: Starting new token refresh.');
         refreshTokenFuture = _performTokenRefresh();
       } else {
-        debugPrint('AuthInterceptor: Waiting for ongoing token refresh.');
+        logger.info('AuthInterceptor: Waiting for ongoing token refresh.');
       }
 
       try {
@@ -107,14 +107,14 @@ class AuthInterceptor extends Interceptor {
 
         if (newAccessToken == null) {
           // If refresh failed, logout the user and propagate the original error.
-          debugPrint('AuthInterceptor: Token refresh failed. Logging out.');
+          logger.info('AuthInterceptor: Token refresh failed. Logging out.');
           await _handleRefreshFailure();
           return handler.next(err);
         }
 
         // Successfully refreshed the token.
         // Now, retry the original request with the new token.
-        debugPrint(
+        logger.info(
           'AuthInterceptor: Token refreshed. Retrying original request.',
         );
 
@@ -147,7 +147,7 @@ class AuthInterceptor extends Interceptor {
         final response = await _dio.fetch(options);
         return handler.resolve(response);
       } catch (e) {
-        debugPrint(
+        logger.error(
           'AuthInterceptor: Exception during token refresh/retry logic: $e',
         );
         await _handleRefreshFailure();
@@ -166,10 +166,10 @@ class AuthInterceptor extends Interceptor {
   /// Returns the new access token on success, or null on failure.
   Future<String?> _performTokenRefresh() async {
     final refreshToken = await TokensManager.instance.retriveRefresh();
-    final accessToken = await TokensManager.instance.retriveAccess();
+    final accessToken = await TokensManager.instance.retrieveAccess();
 
     if (refreshToken == null) {
-      debugPrint(
+      logger.info(
         'AuthInterceptor: No refresh token available. Cannot refresh.',
       );
       return null;
@@ -188,7 +188,7 @@ class AuthInterceptor extends Interceptor {
     // refreshDio.interceptors.addAll([AwesomeDioInterceptor()]);
 
     try {
-      debugPrint('AuthInterceptor: Sending refresh token request...');
+      logger.info('AuthInterceptor: Sending refresh token request...');
       final response = await refreshDio.post(
         Configuration.refreshUrl, // Your backend's refresh token endpoint
         data: Configuration.refreshData ?? {'refreshToken': refreshToken},
@@ -210,18 +210,18 @@ class AuthInterceptor extends Interceptor {
             // );
             await TokensManager.instance.saveRefresh(newRefreshToken);
           }
-          debugPrint('AuthInterceptor: Token refreshed successfully!');
+          logger.info('AuthInterceptor: Token refreshed successfully!');
           return newAccessToken;
         }
       }
       // If status code is not 200 or tokens are missing, it's a refresh failure.
-      debugPrint(
+      logger.info(
         'AuthInterceptor: Refresh token API call failed: Status ${response.statusCode}, Data: ${response.data}',
       );
 
       return null;
     } on DioException catch (e) {
-      debugPrint(
+      logger.info(
         'AuthInterceptor: Dio error during refresh token API call: ${e.message}',
       );
       AuthManager.instance.emitAuthManagerEvent(
@@ -233,7 +233,7 @@ class AuthInterceptor extends Interceptor {
       // A 401 or 403 on the refresh endpoint means the refresh token is invalid/expired.
       return null;
     } catch (e) {
-      debugPrint('AuthInterceptor: Unexpected error during refresh token: $e');
+      logger.info('AuthInterceptor: Unexpected error during refresh token: $e');
       return null;
     }
   }

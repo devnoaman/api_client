@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
 
 import 'package:api_client/api_client.dart';
-import 'package:api_client/src/network_client.dart';
 import 'package:api_client/src/storage_mangament.dart';
-import 'package:api_client/src/token_mangament.dart';
+import 'package:api_client/src/utils/base_logger.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 typedef AuthenticationDecoder<T> = T Function(dynamic data);
 typedef LoginDecoder<T> = T Function(dynamic data);
@@ -43,6 +40,8 @@ class AuthManager {
   // Private constructor remains the same.
   AuthManager._();
   //
+  final logger = BaseLogger();
+
   //
   final _authManagerStreamController =
       StreamController<AuthManagerStreamEvent>.broadcast();
@@ -50,7 +49,7 @@ class AuthManager {
       _authManagerStreamController.stream;
 
   void emitAuthManagerEvent(AuthManagerStreamEvent event) {
-    log('Emitting AuthManager event: $event');
+    logger.debug('Emitting AuthManager event: $event');
     _authManagerStreamController.add(event);
   }
 
@@ -100,7 +99,7 @@ class AuthManager {
         var token = findAccessToken(response.data);
         var refreshToken = findRefreshToken(response.data);
 
-        print('token founded: ${token}');
+        logger.debug('token founded: ${token}');
         if (token != null) {
           await tokensManager.saveAccess(
             token.toString(),
@@ -116,13 +115,13 @@ class AuthManager {
       return null;
       // throw Exception('Login failed with status code: ${response.statusCode}');
     } on DioException catch (e) {
-      log('Dio error on GET request to $path: ${e.message}');
+      logger.error('Dio error on GET request to $path: ${e.message}');
       // return null;
       throw Exception('Dio error on GET request to $path: ${e.message}');
     } catch (e, st) {
-      log('Unexpected error on GET request to $path: $e');
-      log(e.toString());
-      log(st.toString());
+      logger.error('Unexpected error on GET request to $path: $e');
+      logger.error(e.toString());
+      logger.error(st.toString());
       // return null;
       throw Exception('Unexpected error on GET request to $path: $e');
     }
@@ -207,10 +206,10 @@ class AuthManager {
       }
       return null;
     } on DioException catch (e) {
-      log('Dio error on GET request to $path: ${e.message}');
+      logger.error('Dio error on GET request to $path: ${e.message}');
       return null;
     } catch (e) {
-      log('Unexpected error on GET request to $path: $e');
+      logger.error('Unexpected error on GET request to $path: $e');
       return null;
     } finally {
       await userManager.remove();

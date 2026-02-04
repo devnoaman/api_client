@@ -13,4 +13,5 @@ class Configuration {
   static Duration? connectTimeout = const Duration(seconds: 30);
   static Duration? receiveTimeout = const Duration(seconds: 30);
   static Duration? sendTimeout = const Duration(seconds: 30);
+  static bool enableLogs = true;
 }

@@ -1,19 +1,15 @@
-import 'dart:developer';
+import 'package:api_client/src/utils/base_logger.dart';
 
 import '../api_client.dart';
-import 'client/http_method.dart';
-import 'network_client.dart';
-import 'token_mangament.dart';
 import 'package:dio/dio.dart';
-
-
-
 
 /// Abstract class representing an API endpoint.
 ///]
 //
 @Deprecated('Use EndpointImpl instead')
 abstract class Endpoint<T> {
+  final logger = BaseLogger();
+
   AuthManager get authManager => AuthManager.instance;
   Future<bool> get isLogedIn async => await authManager.me() != null;
 
@@ -55,7 +51,7 @@ abstract class Endpoint<T> {
   )
   Future<T?> get() async {
     var tokern = TokensManager.instance;
-    var accessToken = await tokern.retriveAccess();
+    var accessToken = await tokern.retrieveAccess();
     final client = NetworkClient().dioClient;
     client.options.headers.addAll({
       'Authorization': ' Bearer $accessToken',
@@ -75,8 +71,8 @@ abstract class Endpoint<T> {
       }
       return null;
     } catch (e, s) {
-      log('Unexpected error on GET request to $path: $e');
-      log('stacktrace to is: $s');
+      logger.error('Unexpected error on GET request to $path: $e');
+      logger.error('stacktrace to is: $s');
       return null;
     }
   }
@@ -86,7 +82,7 @@ abstract class Endpoint<T> {
   ]) async {
     final client = NetworkClient().dioClient;
     var tokern = TokensManager.instance;
-    var accessToken = await tokern.retriveAccess();
+    var accessToken = await tokern.retrieveAccess();
     if (authenticated ?? false) {
       client.options.headers.addAll({
         'Authorization': ' Bearer $accessToken',
@@ -125,8 +121,8 @@ abstract class Endpoint<T> {
       }
       return response;
     } catch (e, s) {
-      log('Unexpected error on GET request to $path: $e');
-      log('stacktrace to is: $s');
+      logger.error('Unexpected error on GET request to $path: $e');
+      logger.error('stacktrace to is: $s');
       return null;
     }
   }
@@ -136,7 +132,7 @@ abstract class Endpoint<T> {
   ]) async {
     final client = NetworkClient().dioClient;
     var tokern = TokensManager.instance;
-    var accessToken = await tokern.retriveAccess();
+    var accessToken = await tokern.retrieveAccess();
     if (authenticated ?? false) {
       client.options.headers.addAll({
         'Authorization': ' Bearer $accessToken',
@@ -174,8 +170,8 @@ abstract class Endpoint<T> {
       }
       return Success(data);
     } on DioException catch (e, s) {
-      log('Unexpected error on GET request to $path: $e');
-      log('stacktrace to is: $s');
+      logger.error('Unexpected error on GET request to $path: $e');
+      logger.error('stacktrace to is: $s');
       return Failed(
         e,
         s,
@@ -183,8 +179,8 @@ abstract class Endpoint<T> {
         e.response?.data,
       );
     } catch (e, s) {
-      log('Unexpected error on GET request to $path: $e');
-      log('stacktrace to is: $s');
+      logger.error('Unexpected error on GET request to $path: $e');
+      logger.error('stacktrace to is: $s');
       return Failed(
         e,
         s,

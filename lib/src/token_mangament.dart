@@ -1,10 +1,11 @@
 import 'package:api_client/api_client.dart';
+import 'package:api_client/src/utils/base_logger.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'dart:developer' as dev;
 
 class TokensManager {
   TokensManager._();
   static final TokensManager instance = TokensManager._();
+  final logger = BaseLogger();
 
   static const String _accessKey = 'access';
   static const String _refreshKey = 'refresh';
@@ -18,7 +19,7 @@ class TokensManager {
   );
   static FlutterSecureStorage get storage => _storage;
   Future<void> saveAccess(String accessToken) async {
-    dev.log("Saving access token");
+    logger.debug("Saving access token");
     return await _storage.write(
       key: _accessKey,
       value: accessToken,
@@ -26,21 +27,21 @@ class TokensManager {
   }
 
   Future<void> saveRefresh(String refreshToken) async {
-    dev.log("Saving refresh token");
+    logger.debug("Saving refresh token");
     return await _storage.write(
       key: _refreshKey,
       value: refreshToken,
     );
   }
 
-  Future<String?> retriveAccess() async {
+  Future<String?> retrieveAccess() async {
     final String? access = await _storage.read(
       key: _accessKey,
     );
     if (access != null) {
-      dev.log("Access token found");
+      logger.debug("Access token found");
     } else {
-      dev.log("Access token not found");
+      logger.warn("Access token not found");
     }
 
     return access;
@@ -51,9 +52,9 @@ class TokensManager {
       key: _refreshKey,
     );
     if (refresh != null) {
-      dev.log("Refresh token found");
+      logger.debug("Refresh token found");
     } else {
-      dev.log("Refresh token not found");
+      logger.warn("Refresh token not found");
     }
     return refresh;
   }
@@ -72,14 +73,14 @@ class TokensManager {
   }
 
   Future<void> deleteAll() async {
-    dev.log("Deleting all tokens");
+    logger.warn("Deleting all tokens");
     await _storage.deleteAll();
   }
 
   Object? findAccessToken(dynamic data) {
     if (data is Map) {
       if (data.containsKey(Configuration.tokenKeyName)) {
-        dev.log("Found access token in data map");
+        logger.debug("Found access token in data map");
         return data[Configuration.tokenKeyName];
       }
       for (var value in data.values) {
@@ -102,7 +103,7 @@ class TokensManager {
   Object? findRefreshToken(dynamic data) {
     if (data is Map) {
       if (data.containsKey(Configuration.refreshTokenKeyName)) {
-        dev.log("Found refresh token in data map");
+        logger.debug("Found refresh token in data map");
         return data[Configuration.refreshTokenKeyName];
       }
       for (var value in data.values) {

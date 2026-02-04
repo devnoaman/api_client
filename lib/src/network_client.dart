@@ -1,5 +1,6 @@
 import 'package:api_client/api_client.dart';
 import 'package:api_client/src/utils/auth_interceptor.dart';
+import 'package:api_client/src/utils/base_logger.dart';
 import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:sentry_dio/sentry_dio.dart';
@@ -13,6 +14,7 @@ class NetworkClient {
 
   // The Dio instance, now nullable. It will be null until initialized.
   Dio? _dio;
+  static final logger = BaseLogger();
 
   // Factory constructor: This is the entry point to get the singleton.
   // It takes the baseUrl as an argument *only the first time* it's called
@@ -36,9 +38,11 @@ class NetworkClient {
       // want to print a warning, throw an error, or simply ignore it.
       // For this example, we'll just ignore it.
       // Example:
-      // if (baseUrl != null && _instance._dio?.options.baseUrl != baseUrl) {
-      //   print('Warning: NetworkClient already initialized with a different baseUrl.');
-      // }
+      if (baseUrl != null && _instance._dio?.options.baseUrl != baseUrl) {
+        logger.info(
+          'Warning: NetworkClient already initialized with a different baseUrl.',
+        );
+      }
     }
     return _instance; // Always return the same instance
   }

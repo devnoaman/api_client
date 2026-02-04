@@ -5,6 +5,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
   Configuration.baseUrl = 'http://localhost:5048/api';
+  Configuration.enableLogs = false;
+
   runApp(ProviderScope(child: const MainApp()));
 }
 

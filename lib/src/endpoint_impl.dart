@@ -1,8 +1,5 @@
-import 'dart:developer';
 import 'package:api_client/api_client.dart';
-import 'package:api_client/src/client/http_method.dart';
-import 'package:api_client/src/network_client.dart';
-import 'package:api_client/src/token_mangament.dart';
+import 'package:api_client/src/utils/base_logger.dart';
 import 'package:dio/dio.dart';
 
 class EndpointImpl<T> extends Endpoint<T> {
@@ -14,12 +11,13 @@ class EndpointImpl<T> extends Endpoint<T> {
     super.authenticated = false,
     super.method = HTTPMethod.get,
   });
+  final logger = BaseLogger();
 
   @override
   Future<dynamic> call([Map<String, dynamic>? queryParameter]) async {
     final client = NetworkClient().dioClient;
     var tokern = TokensManager.instance;
-    var accessToken = await tokern.retriveAccess();
+    var accessToken = await tokern.retrieveAccess();
     if (authenticated ?? false) {
       client.options.headers.addAll({
         'Authorization': ' Bearer $accessToken',
@@ -47,8 +45,8 @@ class EndpointImpl<T> extends Endpoint<T> {
       }
       return response;
     } catch (e, s) {
-      log('Unexpected error on request to $path: $e');
-      log('stacktrace is: $s');
+      logger.error('Unexpected error on request to $path: $e');
+      logger.error('stacktrace is: $s');
       return null;
     }
   }
@@ -59,7 +57,7 @@ class EndpointImpl<T> extends Endpoint<T> {
   ]) async {
     final client = NetworkClient().dioClient;
     var tokern = TokensManager.instance;
-    var accessToken = await tokern.retriveAccess();
+    var accessToken = await tokern.retrieveAccess();
     if (authenticated ?? false) {
       client.options.headers.addAll({
         'Authorization': ' Bearer $accessToken',
@@ -88,12 +86,12 @@ class EndpointImpl<T> extends Endpoint<T> {
       }
       return Success(data);
     } on DioException catch (e, s) {
-      log('Unexpected error on request to $path: $e');
-      log('stacktrace is: $s');
+      logger.error('Unexpected error on request to $path: $e');
+      logger.error('stacktrace is: $s');
       return Failed(e, s, null, e.response?.data);
     } catch (e, s) {
-      log('Unexpected error on request to $path: $e');
-      log('stacktrace is: $s');
+      logger.error('Unexpected error on request to $path: $e');
+      logger.error('stacktrace is: $s');
       return Failed(e, s, null, data);
     }
   }
