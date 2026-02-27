@@ -80,11 +80,14 @@ base class BaseController<T> extends ApiController<T> {
         options: options == null
             ? Options(
                 method: method?.toStringName,
-                headers: Configuration.headers,
+                headers: {...Configuration.headers, 'enableLogs': enableLogs},
               )
             : options?.copyWith(
                 method: method?.toStringName,
-                headers: options?.headers ?? Configuration.headers,
+                headers: {
+                  ...options?.headers ?? Configuration.headers,
+                  'enableLogs': enableLogs,
+                },
               ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
