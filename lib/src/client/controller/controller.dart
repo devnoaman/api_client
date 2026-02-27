@@ -9,6 +9,7 @@ abstract class ApiController<T> {
   final Map<String, dynamic>? queryParameters;
   final T Function(dynamic) responseDecoder;
   final bool? authenticated;
+  final bool? enableLogs;
   final HTTPMethod? method;
   final Options? options;
   final CancelToken? cancelToken;
@@ -20,6 +21,7 @@ abstract class ApiController<T> {
     this.queryParameters,
     required this.responseDecoder,
     this.authenticated = false,
+    this.enableLogs = false,
     this.method = HTTPMethod.get,
     this.options,
     this.cancelToken,

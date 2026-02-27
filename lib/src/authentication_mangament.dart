@@ -83,6 +83,7 @@ class AuthManager {
   Future login({
     required String path,
     required Map<String, dynamic> data,
+    bool enableLogs = true,
     required AuthenticationDecoder decoder,
   }) async {
     final client = NetworkClient().dioClient;
@@ -90,9 +91,13 @@ class AuthManager {
     try {
       var response = await client.post(
         path,
-
-        // path,
         data: data,
+        options: Options(
+          headers: {
+            ...Configuration.headers,
+            'enableLogs': enableLogs,
+          },
+        ),
       );
 
       if (response.statusCode == 200 && response.data != null) {

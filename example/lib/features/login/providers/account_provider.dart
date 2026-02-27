@@ -18,6 +18,7 @@ class LoginNotifier extends StateNotifier<String> {
     try {
       var data = await manager.login(
         path: '/Auth/login',
+        enableLogs: false,
         data: {"username": userName, "password": password},
         decoder: (data) {
           print(data);
@@ -27,8 +28,8 @@ class LoginNotifier extends StateNotifier<String> {
       );
       ref.read(meProvider.notifier).me();
     } catch (e, s) {
-      print(e);
-      print(s);
+      // print(e);
+      // print(s);
     }
   }
 }

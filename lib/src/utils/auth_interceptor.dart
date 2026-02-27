@@ -1,7 +1,7 @@
 // lib/auth/auth_interceptor.dart
 
 import 'package:api_client/api_client.dart';
-import 'package:api_client/src/utils/base_logger.dart';
+import 'package:api_client/src/utils/network_client_logger_mixin.dart';
 import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -19,12 +19,11 @@ typedef ShowMessageCallback = void Function(String message);
 /// 4. It handles concurrent requests that fail with a 401, ensuring that the token is only refreshed once.
 /// 5. If the token refresh is successful, it retries the original failed request(s) with the new token.
 /// 6. If the token refresh fails, it triggers a global logout flow.
-class AuthInterceptor extends Interceptor {
+class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
   final Dio _dio;
   // final FlutterSecureStorage _secureStorage;
   final LogoutCallback _onLogout;
   final ShowMessageCallback _onShowMessage;
-  final logger = BaseLogger();
 
   /// A Future that completes when the token refresh operation is done.
   ///
@@ -48,7 +47,10 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    logger.info('req: ${options.path}');
+    final enableLogs = options.headers['enableLogs'] as bool? ?? true;
+    if (enableLogs) {
+      logRequest(options);
+    }
     // Do not add the Authorization header to the refresh token request itself,
     // as it typically uses the refresh token in its body for authentication.
     if (options.path.contains(Configuration.refreshUrl)) {
@@ -155,6 +157,23 @@ class AuthInterceptor extends Interceptor {
       } finally {
         refreshTokenFuture = null;
       }
+    }
+
+    final enableLogs =
+        err.requestOptions.headers['enableLogs'] as bool? ?? true;
+    if (enableLogs) {
+      logError(
+        err,
+      );
+      if (err.response != null) {
+        logResponse(
+          err.response!,
+          error: true,
+          style: NetworkClientLoggerMixin.defaultErrorStyle,
+        );
+      }
+
+      logNewLine();
     }
 
     // For all other errors, pass them along.

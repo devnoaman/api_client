@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  Configuration.baseUrl = 'http://localhost:5048/api';
-  Configuration.enableLogs = false;
+  Configuration.baseUrl = 'https://uat.gudea.gov.iq/api/v1';
+  Configuration.enableLogs = true;
 
   runApp(ProviderScope(child: const MainApp()));
 }

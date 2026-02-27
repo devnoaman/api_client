@@ -9,7 +9,7 @@ base class BaseController<T> extends ApiController<T> {
     super.queryParameters,
     super.options,
     required super.responseDecoder,
-
+    super.enableLogs = true,
     super.authenticated = false,
     super.method = HTTPMethod.get,
   });
@@ -23,6 +23,7 @@ base class BaseController<T> extends ApiController<T> {
     if (authenticated ?? false) {
       client.options.headers.addAll({
         'Authorization': ' Bearer $accessToken',
+        'enableLogs': enableLogs ?? true,
       });
     }
     try {
@@ -33,11 +34,17 @@ base class BaseController<T> extends ApiController<T> {
         options: options == null
             ? Options(
                 method: method?.toStringName,
-                headers: Configuration.headers,
+                headers: {
+                  ...Configuration.headers,
+                  'enableLogs': enableLogs ?? true,
+                },
               )
             : options?.copyWith(
                 method: method?.toStringName,
-                headers: options?.headers ?? Configuration.headers,
+                headers: {
+                  ...options?.headers ?? Configuration.headers,
+                  'enableLogs': enableLogs ?? true,
+                },
               ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
