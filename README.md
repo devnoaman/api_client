@@ -5,7 +5,7 @@ A robust, configurable Flutter package that simplifies HTTP networking by wrappi
 ## Features
 
 - **Global Configuration**: Easily configure base URL, headers, and timeouts for all requests.
-- **Controller Pattern**: Use the `ApiController<T>` base class to create organized, maintainable API endpoints with built-in response decoding.
+- **Controller Pattern**: Use the `BaseController<T>` base class to create organized, maintainable API endpoints with built-in response decoding.
 - **Authentication Management**: Built-in support for login, logout, and state management via `AuthManager`.
 - **Automatic Token Handling**: Interceptors for automatically appending access tokens and handling token refresh workflows.
 - **Secure Storage**: Integrated `flutter_secure_storage` to safely store user data, access tokens, and refresh tokens.
