@@ -62,7 +62,7 @@ base class BaseController<T> extends ApiController<T> {
         onReceiveProgress: onReceiveProgress,
       );
 
-      if (!_isSuccess(response.statusCode) || response.data == null) {
+      if (!_isSuccess(response.statusCode)) {
         return Failed(
           'Unexpected status code: ${response.statusCode}',
           StackTrace.current,
@@ -93,7 +93,7 @@ base class BaseController<T> extends ApiController<T> {
         onReceiveProgress: onReceiveProgress,
       );
 
-      if (!_isSuccess(response.statusCode) || response.data == null) {
+      if (!_isSuccess(response.statusCode)) {
         return Failed(
           'Unexpected status code: ${response.statusCode}',
           StackTrace.current,
