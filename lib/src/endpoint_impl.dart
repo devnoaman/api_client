@@ -81,7 +81,8 @@ class EndpointImpl<T> extends Endpoint<T> {
         onReceiveProgress: onReceiveProgress,
       );
 
-      if (response.statusCode == 200 && response.data != null) {
+      if ((response.statusCode == 200 && response.data != null) ||
+          (response.statusCode == 201 && response.data != null)) {
         return Success(responseDecoder(response.data));
       }
       return Success(data);
