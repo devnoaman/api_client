@@ -15,6 +15,9 @@ abstract class ApiController<T> {
   final CancelToken? cancelToken;
   final ProgressCallback? onReceiveProgress;
 
+  /// The HTTP status codes that should trigger [responseDecoder].
+  /// Defaults to `[200]`. Pass any list to override, e.g. `[200, 201, 202]`.
+  final List<int> successStatusCodes;
   const ApiController({
     required this.path,
     this.data,
@@ -26,6 +29,7 @@ abstract class ApiController<T> {
     this.options,
     this.cancelToken,
     this.onReceiveProgress,
+    this.successStatusCodes = const [200],
   });
 
   Future<dynamic> call([Map<String, dynamic>? queryParameter]);

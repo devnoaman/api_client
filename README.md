@@ -6,6 +6,7 @@ A robust, configurable Flutter package that simplifies HTTP networking by wrappi
 
 - **Global Configuration**: Easily configure base URL, headers, and timeouts for all requests.
 - **Controller Pattern**: Use the `BaseController<T>` base class to create organized, maintainable API endpoints with built-in response decoding.
+- **Flexible Status Codes**: Define custom success HTTP status codes per endpoint.
 - **Authentication Management**: Built-in support for login, logout, and state management via `AuthManager`.
 - **Automatic Token Handling**: Interceptors for automatically appending access tokens and handling token refresh workflows.
 - **Secure Storage**: Integrated `flutter_secure_storage` to safely store user data, access tokens, and refresh tokens.
@@ -52,6 +53,7 @@ base class GetUsersController extends BaseController<List<User>> {
           path: '/users',
           method: HTTPMethod.get,
           authenticated: true, // Automatically includes auth headers
+          successStatusCodes: const [200, 201], // Define custom success status codes
           responseDecoder: (data) =>
               (data as List).map((e) => User.fromJson(e)).toList(),
         );
