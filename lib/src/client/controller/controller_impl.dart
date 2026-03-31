@@ -14,55 +14,67 @@ base class BaseController<T> extends ApiController<T> {
     super.method = HTTPMethod.get,
     super.successStatusCodes = const [200],
   });
+
   final logger = BaseLogger();
 
   /// Returns `true` when [statusCode] is in [successStatusCodes].
   bool _isSuccess(int? statusCode) =>
       statusCode != null && successStatusCodes.contains(statusCode);
 
+  /// Builds the [Options] for the Dio request, merging [Configuration.headers]
+  /// with any caller-supplied [options] and setting the HTTP method.
+  ///
+  /// `enableLogs` is passed as a header so that [AuthInterceptor] can toggle
+  /// request/response logging per-controller without it being sent to the server
+  /// (the interceptor reads and removes it before forwarding the request).
+  Options _buildOptions() {
+    final baseHeaders = {
+      ...Configuration.headers,
+      'enableLogs': enableLogs ?? true,
+    };
+
+    if (options == null) {
+      return Options(
+        method: method?.toStringName,
+        headers: baseHeaders,
+      );
+    }
+
+    return options!.copyWith(
+      method: method?.toStringName,
+      headers: {
+        ...options!.headers ?? Configuration.headers,
+        'enableLogs': enableLogs ?? true,
+      },
+    );
+  }
+
   @override
   Future<dynamic> call([Map<String, dynamic>? queryParameter]) async {
     final client = NetworkClient().dioClient;
-    var token = TokensManager.instance;
-    var accessToken = await token.retrieveAccess();
-    if (authenticated ?? false) {
-      client.options.headers.addAll({
-        'Authorization': ' Bearer $accessToken',
-        'enableLogs': enableLogs ?? true,
-      });
-    }
     try {
       final response = await client.request(
         path,
         data: data,
         queryParameters: queryParameter ?? queryParameters,
-        options: options == null
-            ? Options(
-                method: method?.toStringName,
-                headers: {
-                  ...Configuration.headers,
-                  'enableLogs': enableLogs ?? true,
-                },
-              )
-            : options?.copyWith(
-                method: method?.toStringName,
-                headers: {
-                  ...options?.headers ?? Configuration.headers,
-                  'enableLogs': enableLogs ?? true,
-                },
-              ),
+        options: _buildOptions(),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
       );
 
-      if (_isSuccess(response.statusCode) && response.data != null) {
-        return responseDecoder(response.data);
+      if (!_isSuccess(response.statusCode) || response.data == null) {
+        return Failed(
+          'Unexpected status code: ${response.statusCode}',
+          StackTrace.current,
+          null,
+          response.data,
+        );
       }
-      return response;
+      return responseDecoder(response.data);
     } catch (e, s) {
       logger.error('Unexpected error on request to $path: $e');
       logger.error('stacktrace is: $s');
-      return null;
+      return Failed(e, s, null, data);
     }
   }
 
@@ -71,38 +83,25 @@ base class BaseController<T> extends ApiController<T> {
     Map<String, dynamic>? queryParameter,
   ]) async {
     final client = NetworkClient().dioClient;
-    var tokern = TokensManager.instance;
-    var accessToken = await tokern.retrieveAccess();
-    if (authenticated ?? false) {
-      client.options.headers.addAll({
-        'Authorization': ' Bearer $accessToken',
-      });
-    }
     try {
       final response = await client.request(
         path,
         data: data,
         queryParameters: queryParameter ?? queryParameters,
-        options: options == null
-            ? Options(
-                method: method?.toStringName,
-                headers: {...Configuration.headers, 'enableLogs': enableLogs},
-              )
-            : options?.copyWith(
-                method: method?.toStringName,
-                headers: {
-                  ...options?.headers ?? Configuration.headers,
-                  'enableLogs': enableLogs,
-                },
-              ),
+        options: _buildOptions(),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
       );
 
-      if (_isSuccess(response.statusCode) && response.data != null) {
-        return Success(responseDecoder(response.data));
+      if (!_isSuccess(response.statusCode) || response.data == null) {
+        return Failed(
+          'Unexpected status code: ${response.statusCode}',
+          StackTrace.current,
+          null,
+          response.data,
+        );
       }
-      return Success(data);
+      return Success(responseDecoder(response.data));
     } on DioException catch (e, s) {
       logger.error('Unexpected error on request to $path: $e');
       logger.error('stacktrace is: $s');
