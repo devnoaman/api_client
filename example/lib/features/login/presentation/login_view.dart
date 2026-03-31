@@ -5,47 +5,89 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class LoginView extends HookConsumerWidget {
   const LoginView({super.key});
-  static const route = '/login';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    var authState = ref.watch(authProvider);
-    var meState = ref.watch(meProvider);
-    var authNotifier = ref.watch(authProvider.notifier);
-    // hooks controller
-    var usernameController = useTextEditingController();
-    var passwordController = useTextEditingController();
+    final authState = ref.watch(authProvider);
+    final authNotifier = ref.read(authProvider.notifier);
+
+    // Pre-fill with test credentials for quick demo
+    final emailCtrl = useTextEditingController(text: 'alice@example.com');
+    final passwordCtrl = useTextEditingController(text: 'password123');
+
     return Scaffold(
+      appBar: AppBar(title: const Text('api_client — Test Server Demo')),
       body: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: 400),
+          constraints: const BoxConstraints(maxWidth: 420),
           child: Card(
+            margin: const EdgeInsets.all(24),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(24.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(meState),
+                  const Text(
+                    'Login',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Connected to http://localhost:3000',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
                   TextField(
-                    controller: usernameController,
-                    decoration: InputDecoration(labelText: 'Username'),
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 16),
                   TextField(
-                    controller: passwordController,
-                    decoration: InputDecoration(labelText: 'Password'),
+                    controller: passwordCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(),
+                    ),
                     obscureText: true,
                   ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Test accounts: alice@example.com / password123\n'
+                    '              bob@example.com / password456',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
                   const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      // Handle login logic
-                      authNotifier.login(
-                        usernameController.text,
-                        passwordController.text,
-                        context,
-                      );
-                    },
-                    child: const Text('Login'),
+                  if (authState is AsyncError)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Error: ${authState.error}',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  FilledButton(
+                    onPressed: authState is AsyncLoading
+                        ? null
+                        : () => authNotifier.login(
+                              emailCtrl.text.trim(),
+                              passwordCtrl.text,
+                              context,
+                            ),
+                    child: authState is AsyncLoading
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Login'),
                   ),
                 ],
               ),

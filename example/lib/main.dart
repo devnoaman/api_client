@@ -4,15 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() {
-  Configuration.baseUrl = 'https://uat.gudea.gov.iq/api/v1';
+  // ── Test server connection ──────────────────────────────────────────────
+  // Run: node test_server/server.js  (from the api_client root)
+  // iOS simulator  → use 127.0.0.1
+  // Android emulator → use 10.0.2.2
+  Configuration.baseUrl = 'http://127.0.0.1:3000';
+
+  // The test server returns { "accessToken": "...", "refreshToken": "..." }
+  Configuration.tokenKeyName        = 'accessToken';
+  Configuration.refreshTokenKeyName = 'refreshToken';
+
+  // Token refresh endpoint (matches server.js)
+  Configuration.refreshUrl = '/auth/refresh';
+
   Configuration.enableLogs = true;
 
-  runApp(ProviderScope(child: const MainApp()));
+  runApp(const ProviderScope(child: MainApp()));
 }
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
-  // 92e8da8600324b0e90709abf6e3d5c2c
+
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(home: LoginView());
