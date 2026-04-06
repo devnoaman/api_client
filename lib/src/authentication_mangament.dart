@@ -93,8 +93,8 @@ class AuthManager {
         path,
         data: data,
         options: Options(
-          headers: {
-            ...Configuration.headers,
+          headers: Configuration.headers,
+          extra: {
             'enableLogs': enableLogs,
           },
         ),
@@ -120,15 +120,15 @@ class AuthManager {
       return null;
       // throw Exception('Login failed with status code: ${response.statusCode}');
     } on DioException catch (e) {
-      logger.error('Dio error on GET request to $path: ${e.message}');
+      logger.error('Dio error on POST request to $path: ${e.message}');
       // return null;
-      throw Exception('Dio error on GET request to $path: ${e.message}');
+      throw Exception('Dio error on POST request to $path: ${e.message}');
     } catch (e, st) {
-      logger.error('Unexpected error on GET request to $path: $e');
+      logger.error('Unexpected error on POST request to $path: $e');
       logger.error(e.toString());
       logger.error(st.toString());
       // return null;
-      throw Exception('Unexpected error on GET request to $path: $e');
+      throw Exception('Unexpected error on POST request to $path: $e');
     }
   }
 
@@ -211,10 +211,10 @@ class AuthManager {
       }
       return null;
     } on DioException catch (e) {
-      logger.error('Dio error on GET request to $path: ${e.message}');
+      logger.error('Dio error on POST request to $path: ${e.message}');
       return null;
     } catch (e) {
-      logger.error('Unexpected error on GET request to $path: $e');
+      logger.error('Unexpected error on POST request to $path: $e');
       return null;
     } finally {
       await userManager.remove();

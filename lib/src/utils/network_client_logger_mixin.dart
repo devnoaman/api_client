@@ -76,7 +76,6 @@ mixin NetworkClientLoggerMixin {
       style: defaultRequestStyle,
     );
     // if (_logRequestHeaders) {
-    options.headers.removeWhere((key, value) => key == 'enableLogs');
     // _log(
     //   key: 'Headers',
     //   value: '-> ${options.headers.toString()}',

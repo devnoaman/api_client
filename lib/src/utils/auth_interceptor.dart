@@ -47,7 +47,7 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final enableLogs = options.headers['enableLogs'] as bool? ?? true;
+    final enableLogs = options.extra['enableLogs'] as bool? ?? true;
     if (enableLogs) {
       logRequest(options);
     }
@@ -160,7 +160,7 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
     }
 
     final enableLogs =
-        err.requestOptions.headers['enableLogs'] as bool? ?? true;
+        err.requestOptions.extra['enableLogs'] as bool? ?? true;
     if (enableLogs) {
       logError(
         err,
