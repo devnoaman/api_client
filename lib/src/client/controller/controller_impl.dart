@@ -30,13 +30,13 @@ base class BaseController<T> extends ApiController<T> {
   Options _buildOptions() {
     final baseHeaders = {
       ...Configuration.headers,
-      'enableLogs': enableLogs ?? true,
     };
 
     if (options == null) {
       return Options(
         method: method?.toStringName,
         headers: baseHeaders,
+        extra: {'enableLogs': enableLogs ?? true},
       );
     }
 
@@ -44,6 +44,9 @@ base class BaseController<T> extends ApiController<T> {
       method: method?.toStringName,
       headers: {
         ...options!.headers ?? Configuration.headers,
+      },
+      extra: {
+        ...options!.extra ?? const <String, dynamic>{},
         'enableLogs': enableLogs ?? true,
       },
     );

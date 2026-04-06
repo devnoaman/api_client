@@ -2,6 +2,8 @@ import 'package:api_client/api_client.dart';
 import 'package:example/features/login/presentation/login_view.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:super_app_bridge/super_app_bridge.dart';
+import 'package:super_app_common/models/app_config.dart';
 
 void main() {
   // ── Test server connection ──────────────────────────────────────────────
@@ -11,7 +13,7 @@ void main() {
   Configuration.baseUrl = 'http://127.0.0.1:3000';
 
   // The test server returns { "accessToken": "...", "refreshToken": "..." }
-  Configuration.tokenKeyName        = 'accessToken';
+  Configuration.tokenKeyName = 'accessToken';
   Configuration.refreshTokenKeyName = 'refreshToken';
 
   // Token refresh endpoint (matches server.js)
@@ -19,11 +21,36 @@ void main() {
 
   Configuration.enableLogs = true;
 
-  runApp(const ProviderScope(child: MainApp()));
+  final shellService = getPlatformShellService(apiKey: 'apiKey');
+
+  runApp(ProviderScope(child: MainApp(shellService: shellService)));
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class MainApp extends StatefulWidget {
+  const MainApp({super.key, required this.shellService});
+
+  final ShellService shellService;
+
+  @override
+  State<MainApp> createState() => _MainAppState();
+}
+
+class _MainAppState extends State<MainApp> {
+  AppConfig? config;
+  bool? isShell;
+  @override
+  void initState() {
+    // final service = ShellService();
+    _initializeService(widget.shellService);
+    super.initState();
+  }
+
+  Future<void> _initializeService(ShellService service) async {
+    config = await service.getConfiguration();
+    await service.verify();
+    isShell = config != null;
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
