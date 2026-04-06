@@ -3,6 +3,7 @@ import 'package:api_client/src/utils/auth_interceptor.dart';
 import 'package:api_client/src/utils/base_logger.dart';
 import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sentry_dio/sentry_dio.dart';
 
 class NetworkClient {
@@ -92,7 +93,14 @@ class NetworkClient {
     //   AwesomeDioInterceptor(),
     // );
     _dio?.interceptors.addAll([
-      // if (Configuration.enableLogs) AwesomeDioInterceptor(),
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (kIsWeb && options.data == null) {
+            options.sendTimeout = null;
+          }
+          return handler.next(options);
+        },
+      ),
       AuthInterceptor(_dio!, () async {}, (m) {}),
     ]);
 
