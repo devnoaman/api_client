@@ -16,6 +16,35 @@ class TokensManager {
   String? _cachedAccessToken;
   String? _cachedRefreshToken;
 
+  bool _initialized = false;
+
+  /// Call this once at app startup (before any API requests) to eagerly
+  /// pre-load tokens from secure storage into the in-memory cache.
+  ///
+  /// This prevents the Web Crypto race condition where a concurrent
+  /// flutter_secure_storage read during the first request can fail and
+  /// return null even though a valid token is stored.
+  ///
+  /// Example (in main.dart or your app bootstrap):
+  /// ```dart
+  /// await TokensManager.instance.initialize();
+  /// ```
+  Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
+    try {
+      _cachedAccessToken = await _storage.read(key: _accessKey);
+      _cachedRefreshToken = await _storage.read(key: _refreshKey);
+      if (_cachedAccessToken != null) {
+        logger.debug('TokensManager initialized: access token loaded from storage');
+      } else {
+        logger.debug('TokensManager initialized: no access token in storage');
+      }
+    } catch (e) {
+      logger.warn('TokensManager.initialize() failed to read from storage: $e');
+    }
+  }
+
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
     webOptions: WebOptions(
       dbName: 'tokens_db',
@@ -94,6 +123,7 @@ class TokensManager {
     logger.warn("Deleting all tokens");
     _cachedAccessToken = null;
     _cachedRefreshToken = null;
+    _initialized = false;
     await _storage.deleteAll();
   }
 
