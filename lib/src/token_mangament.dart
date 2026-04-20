@@ -41,7 +41,18 @@ class TokensManager {
         logger.debug('TokensManager initialized: no access token in storage');
       }
     } catch (e) {
-      logger.warn('TokensManager.initialize() failed to read from storage: $e');
+      // OperationError means the IndexedDB data was encrypted with a WebCrypto
+      // key that no longer exists (cleared cookies/session, different origin,
+      // or browser key rotation). The stored data is permanently unreadable —
+      // wipe it so the user is prompted to re-authenticate cleanly.
+      logger.warn('TokensManager.initialize() storage corrupted ($e). Clearing all tokens.');
+      _cachedAccessToken = null;
+      _cachedRefreshToken = null;
+      try {
+        await _storage.deleteAll();
+      } catch (_) {
+        // If deleteAll also fails, ignore — storage is already in a bad state.
+      }
     }
   }
 
@@ -77,16 +88,19 @@ class TokensManager {
       logger.debug("Access token found (cache)");
       return _cachedAccessToken;
     }
-    final String? access = await _storage.read(
-      key: _accessKey,
-    );
-    if (access != null) {
-      logger.debug("Access token found");
-      _cachedAccessToken = access;
-    } else {
-      logger.warn("Access token not found");
+    try {
+      final String? access = await _storage.read(key: _accessKey);
+      if (access != null) {
+        logger.debug("Access token found");
+        _cachedAccessToken = access;
+      } else {
+        logger.warn("Access token not found");
+      }
+      return access;
+    } catch (e) {
+      logger.warn('retrieveAccess() storage error ($e). Treating as no token.');
+      return null;
     }
-    return access;
   }
 
   Future<String?> retriveRefresh() async {
@@ -94,16 +108,19 @@ class TokensManager {
       logger.debug("Refresh token found (cache)");
       return _cachedRefreshToken;
     }
-    final String? refresh = await _storage.read(
-      key: _refreshKey,
-    );
-    if (refresh != null) {
-      logger.debug("Refresh token found");
-      _cachedRefreshToken = refresh;
-    } else {
-      logger.warn("Refresh token not found");
+    try {
+      final String? refresh = await _storage.read(key: _refreshKey);
+      if (refresh != null) {
+        logger.debug("Refresh token found");
+        _cachedRefreshToken = refresh;
+      } else {
+        logger.warn("Refresh token not found");
+      }
+      return refresh;
+    } catch (e) {
+      logger.warn('retriveRefresh() storage error ($e). Treating as no token.');
+      return null;
     }
-    return refresh;
   }
 
   Future<Map<String, dynamic>?> retriveAll() async {

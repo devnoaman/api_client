@@ -3,6 +3,7 @@
  *
  * Endpoints:
  *   POST /auth/login          - Returns access + refresh tokens
+ *   POST /auth/token-only     - Returns ONLY an accessToken (tests manual saveAccess)
  *   POST /auth/refresh        - Refreshes the access token
  *   POST /auth/logout         - Clears the session
  *   GET  /public/ping         - Unprotected endpoint
@@ -13,6 +14,12 @@
  * Tokens are simple signed strings — no JWT library needed.
  * Access token expires in 30 seconds (configurable via ACCESS_TTL_MS).
  * Refresh token expires in 5 minutes.
+ *
+ * Manual-token test flow:
+ *   1. POST /auth/token-only  → get only an accessToken
+ *   2. Save it via TokensManager.saveAccess() in Flutter
+ *   3. GET /users             → AuthInterceptor attaches token automatically
+ *   4. Wait for token to expire (30 s) → interceptor auto-refreshes via /auth/refresh
  */
 
 const http = require('http');
@@ -141,6 +148,33 @@ async function handleLogin(req, res) {
   });
 }
 
+/**
+ * POST /auth/token-only
+ * Like /auth/login but returns ONLY an accessToken (no refreshToken).
+ * Used to test TokensManager.saveAccess() without AuthManager.login.
+ */
+async function handleTokenOnly(req, res) {
+  const body = await readBody(req);
+  const { email, password } = body;
+
+  log(`Token-only request: ${email}`);
+
+  if (!email || !password) {
+    return send(res, 400, { error: 'email and password are required' });
+  }
+  if (CREDENTIALS[email] !== password) {
+    return send(res, 401, { error: 'Invalid credentials' });
+  }
+
+  const user  = USERS.find(u => u.email === email);
+  const token = makeToken();
+  accessStore.set(token, { userId: user.id, expiresAt: Date.now() + ACCESS_TTL_MS });
+
+  log(`Issued access-only token for ${email} — expires in ${ACCESS_TTL_MS / 1000}s`);
+  // Returns only accessToken — caller must save it manually via TokensManager.saveAccess()
+  send(res, 200, { accessToken: token });
+}
+
 async function handleRefresh(req, res) {
   const body = await readBody(req);
   const refreshToken = body.refreshToken;
@@ -223,7 +257,8 @@ async function router(req, res) {
   if (method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
   try {
-    if (method === 'POST' && path === '/auth/login')   return await handleLogin(req, res);
+    if (method === 'POST' && path === '/auth/login')       return await handleLogin(req, res);
+    if (method === 'POST' && path === '/auth/token-only')   return await handleTokenOnly(req, res);
     if (method === 'POST' && path === '/auth/refresh') return await handleRefresh(req, res);
     if (method === 'POST' && path === '/auth/logout')  return await handleLogout(req, res);
     if (method === 'GET'  && path === '/public/ping')  return handlePing(req, res);
@@ -252,6 +287,7 @@ http.createServer(router).listen(PORT, () => {
   log('');
   log('Endpoints:');
   log('  POST /auth/login          {"email":"alice@example.com","password":"password123"}');
+  log('  POST /auth/token-only     {"email":"...","password":"..."}  ← testing saveAccess()');
   log('  POST /auth/refresh        {"refreshToken":"<token>"}');
   log('  POST /auth/logout         (Bearer token in header)');
   log('  GET  /public/ping         (no auth)');

@@ -13,20 +13,6 @@ dependencies:
     path: ../
   flutter_hooks: ^0.21.3+1
   hooks_riverpod: ^3.1.0
-  super_app_bridge:
-    git:
-      url: https://github.com/devnoaman/super_app_repo.git
-      path: packages/super_app_bridge
-  super_app_common:
-    git:
-      url: https://github.com/devnoaman/super_app_repo.git
-      path: packages/super_app_common
-      ref: e117fbd551ada7e9eb8776ae9cb56c6b3a53cab4
-  super_app_manager:
-    git:
-      url: https://github.com/devnoaman/super_app_repo.git
-      path: packages/super_app_manager
-      ref: e117fbd551ada7e9eb8776ae9cb56c6b3a53cab4
 
 dev_dependencies:
   flutter_test:
