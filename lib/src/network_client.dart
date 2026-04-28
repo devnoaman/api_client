@@ -1,7 +1,6 @@
 import 'package:api_client/api_client.dart';
 import 'package:api_client/src/utils/auth_interceptor.dart';
 import 'package:api_client/src/utils/base_logger.dart';
-import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sentry_dio/sentry_dio.dart';
@@ -101,6 +100,14 @@ class NetworkClient {
           return handler.next(options);
         },
       ),
+      // 1️⃣  Proactive check: decode the JWT and refresh it if it is about to
+      //     expire BEFORE the request is sent.
+      JwtTokenInterceptor(
+        _dio!,
+        expiryThreshold: Configuration.tokenExpiryThreshold,
+      ),
+      // 2️⃣  Reactive check: handles 401 responses (token was already expired
+      //     or the server rejected it for another reason).
       AuthInterceptor(_dio!, () async {}, (m) {}),
     ]);
 

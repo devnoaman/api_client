@@ -20,6 +20,9 @@
  *   2. Save it via TokensManager.saveAccess() in Flutter
  *   3. GET /users             → AuthInterceptor attaches token automatically
  *   4. Wait for token to expire (30 s) → interceptor auto-refreshes via /auth/refresh
+ *
+ * NOTE: The server generates real JWTs for access tokens so that the Flutter
+ * app's JwtTokenInterceptor can decode the 'exp' claim for proactive refresh.
  */
 
 const http = require('http');
@@ -44,14 +47,27 @@ const CREDENTIALS = {
 // token -> { userId, expiresAt }
 const accessStore  = new Map();
 const refreshStore = new Map();
+const JWT_SECRET = 'my_super_secret_key_for_testing';
 
 // ─── Token helpers ────────────────────────────────────────────────────────────
 function makeToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+function base64url(str) {
+  return Buffer.from(str).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+function makeJwt(userId, ttlMs) {
+  const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const exp = Math.floor((Date.now() + ttlMs) / 1000);
+  const payload = base64url(JSON.stringify({ userId, exp }));
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(`${header}.${payload}`).digest('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  return `${header}.${payload}.${signature}`;
+}
+
 function issueTokens(userId) {
-  const access  = makeToken();
+  const access  = makeJwt(userId, ACCESS_TTL_MS);
   const refresh = makeToken();
   accessStore.set(access,   { userId, expiresAt: Date.now() + ACCESS_TTL_MS });
   refreshStore.set(refresh, { userId, expiresAt: Date.now() + REFRESH_TTL_MS });
@@ -167,10 +183,10 @@ async function handleTokenOnly(req, res) {
   }
 
   const user  = USERS.find(u => u.email === email);
-  const token = makeToken();
+  const token = makeJwt(user.id, ACCESS_TTL_MS);
   accessStore.set(token, { userId: user.id, expiresAt: Date.now() + ACCESS_TTL_MS });
 
-  log(`Issued access-only token for ${email} — expires in ${ACCESS_TTL_MS / 1000}s`);
+  log(`Issued access-only JWT for ${email} — expires in ${ACCESS_TTL_MS / 1000}s`);
   // Returns only accessToken — caller must save it manually via TokensManager.saveAccess()
   send(res, 200, { accessToken: token });
 }

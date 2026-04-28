@@ -24,6 +24,11 @@ void main() async {
 
   Configuration.enableLogs = true;
 
+  // The test server tokens expire in 30 seconds.
+  // We set the threshold to 10 seconds so proactive refresh triggers
+  // when the token has less than 10 seconds to live.
+  Configuration.tokenExpiryThreshold = const Duration(seconds: 10);
+
   // ✅ Pre-load any previously saved tokens from secure storage into memory.
   // This avoids the WebCrypto race condition on web where the first
   // concurrent read can throw OperationError before the key is ready.

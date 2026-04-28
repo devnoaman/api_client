@@ -11,3 +11,4 @@ export './src/client/http_method.dart';
 export './src/client/controller/controller.dart';
 export './src/network_client.dart';
 export './src/token_mangament.dart';
+export './src/utils/jwt_token_interceptor.dart';

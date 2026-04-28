@@ -2,6 +2,8 @@ import 'package:example/features/manual_token/manual_token_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
+import 'dart:async';
 
 /// Demonstrates using [TokensManager.saveAccess] directly —
 /// without going through [AuthManager.login].
@@ -127,18 +129,7 @@ class ManualTokenView extends HookConsumerWidget {
             // ── Token chip ─────────────────────────────────────────────
             if (state.savedToken != null) ...[
               const SizedBox(height: 10),
-              Wrap(
-                children: [
-                  Chip(
-                    avatar: const Icon(Icons.key, size: 16, color: Colors.indigo),
-                    label: Text(
-                      'Token: ${state.savedToken!.substring(0, 12)}…',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    backgroundColor: Colors.indigo.shade50,
-                  ),
-                ],
-              ),
+              _TokenExpiryTimer(token: state.savedToken!),
             ],
 
             // ── Users list ─────────────────────────────────────────────
@@ -247,6 +238,66 @@ class _StatusBox extends StatelessWidget {
           Text(text, style: TextStyle(fontSize: 13, color: textColor)),
         ],
       ),
+    );
+  }
+}
+
+class _TokenExpiryTimer extends HookWidget {
+  final String token;
+  const _TokenExpiryTimer({required this.token});
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = useState<int>(0);
+    final isJwt = useState<bool>(false);
+
+    useEffect(() {
+      try {
+        if (!JwtDecoder.isExpired(token) || JwtDecoder.decode(token).isNotEmpty) {
+          isJwt.value = true;
+          final exp = JwtDecoder.getExpirationDate(token);
+          
+          void update() {
+            remaining.value = exp.difference(DateTime.now().toUtc()).inSeconds;
+          }
+          
+          update();
+          final timer = Timer.periodic(const Duration(seconds: 1), (_) => update());
+          return timer.cancel;
+        }
+      } catch (_) {
+        isJwt.value = false;
+      }
+      return null;
+    }, [token]);
+
+    return Wrap(
+      spacing: 8,
+      children: [
+        Chip(
+          avatar: const Icon(Icons.key, size: 16, color: Colors.indigo),
+          label: Text(
+            'Token: ${token.substring(0, 12)}…',
+            style: const TextStyle(fontSize: 12),
+          ),
+          backgroundColor: Colors.indigo.shade50,
+        ),
+        if (isJwt.value)
+          Chip(
+            avatar: const Icon(Icons.timer, size: 16, color: Colors.orange),
+            label: Text(
+              remaining.value > 0 
+                  ? 'Expires in: ${remaining.value}s' 
+                  : 'Expired (${remaining.value}s)',
+              style: TextStyle(
+                fontSize: 12, 
+                fontWeight: FontWeight.bold,
+                color: remaining.value <= 10 && remaining.value > 0 ? Colors.red : Colors.black,
+              ),
+            ),
+            backgroundColor: Colors.orange.shade50,
+          ),
+      ],
     );
   }
 }

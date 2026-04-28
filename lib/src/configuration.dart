@@ -14,4 +14,9 @@ class Configuration {
   static Duration? receiveTimeout = const Duration(seconds: 30);
   static Duration? sendTimeout = const Duration(seconds: 30);
   static bool enableLogs = true;
+
+  /// How far before the JWT access-token's `exp` claim we should proactively
+  /// refresh it. Defaults to 60 seconds so there is a safe window even on
+  /// slow connections. Set to [Duration.zero] to disable proactive refresh.
+  static Duration tokenExpiryThreshold = const Duration(seconds: 60);
 }
