@@ -47,20 +47,27 @@ class JwtTokenInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     // Never intercept the refresh endpoint — infinite loop guard.
-    if (options.path.contains(Configuration.refreshUrl)) {
+    // Also skip requests explicitly marked as unauthenticated so we never
+    // proactively refresh/attach a token for a public endpoint.
+    final requiresAuth = options.extra['authenticated'] as bool? ?? false;
+    if (options.path.contains(Configuration.refreshUrl) || !requiresAuth) {
       return handler.next(options);
     }
 
     final accessToken = await TokensManager.instance.retrieveAccess();
 
     if (accessToken == null) {
-      _logger.debug('JwtTokenInterceptor: no access token stored, skipping check.');
+      _logger.debug(
+        'JwtTokenInterceptor: no access token stored, skipping check.',
+      );
       return handler.next(options);
     }
 
     // Silently ignore tokens that cannot be decoded (opaque / non-JWT).
     if (!_isJwt(accessToken)) {
-      _logger.debug('JwtTokenInterceptor: token is not a decodable JWT, skipping.');
+      _logger.debug(
+        'JwtTokenInterceptor: token is not a decodable JWT, skipping.',
+      );
       return handler.next(options);
     }
 
@@ -122,7 +129,8 @@ class JwtTokenInterceptor extends Interceptor {
   /// Returns `true` if [token] looks like a three-part JWT.
   bool _isJwt(String token) {
     try {
-      return !JwtDecoder.isExpired(token) || JwtDecoder.decode(token).isNotEmpty;
+      return !JwtDecoder.isExpired(token) ||
+          JwtDecoder.decode(token).isNotEmpty;
     } catch (_) {
       return false;
     }
@@ -164,8 +172,7 @@ class JwtTokenInterceptor extends Interceptor {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final newAccess =
-            response.data[Configuration.tokenKeyName] as String?;
+        final newAccess = response.data[Configuration.tokenKeyName] as String?;
         final newRefresh =
             response.data[Configuration.refreshTokenKeyName] as String?;
 

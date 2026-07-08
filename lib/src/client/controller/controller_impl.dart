@@ -28,26 +28,26 @@ base class BaseController<T> extends ApiController<T> {
   /// request/response logging per-controller without it being sent to the server
   /// (the interceptor reads and removes it before forwarding the request).
   Options _buildOptions() {
-    final baseHeaders = {
-      ...Configuration.headers,
-    };
+    final baseHeaders = {...Configuration.headers};
 
     if (options == null) {
       return Options(
         method: method?.toStringName,
         headers: baseHeaders,
-        extra: {'enableLogs': enableLogs ?? true},
+        extra: {
+          'enableLogs': enableLogs ?? true,
+          'authenticated': authenticated ?? false,
+        },
       );
     }
 
     return options!.copyWith(
       method: method?.toStringName,
-      headers: {
-        ...options!.headers ?? Configuration.headers,
-      },
+      headers: {...options!.headers ?? Configuration.headers},
       extra: {
         ...options!.extra ?? const <String, dynamic>{},
         'enableLogs': enableLogs ?? true,
+        'authenticated': authenticated ?? false,
       },
     );
   }
