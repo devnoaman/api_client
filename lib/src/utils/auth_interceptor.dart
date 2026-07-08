@@ -53,7 +53,11 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
     }
     // Do not add the Authorization header to the refresh token request itself,
     // as it typically uses the refresh token in its body for authentication.
-    if (options.path.contains(Configuration.refreshUrl)) {
+    // Also skip it for requests the caller explicitly marked as unauthenticated
+    // (e.g. signup/OTP endpoints) so a stale/expired cached token never gets
+    // attached to a request that should be sent anonymously.
+    final requiresAuth = options.extra['authenticated'] as bool? ?? false;
+    if (options.path.contains(Configuration.refreshUrl) || !requiresAuth) {
       return handler.next(options);
     }
 
@@ -161,9 +165,7 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
 
     final enableLogs = err.requestOptions.extra['enableLogs'] as bool? ?? true;
     if (enableLogs) {
-      logError(
-        err,
-      );
+      logError(err);
       if (err.response != null) {
         logResponse(
           err.response!,
