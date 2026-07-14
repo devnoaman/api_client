@@ -7,8 +7,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 // ─── Auth Provider ─────────────────────────────────────────────────────────
 
-final authProvider =
-    AsyncNotifierProvider<LoginNotifier, void>(LoginNotifier.new);
+final authProvider = AsyncNotifierProvider<LoginNotifier, void>(
+  LoginNotifier.new,
+);
 
 class LoginNotifier extends AsyncNotifier<void> {
   @override
@@ -17,19 +18,21 @@ class LoginNotifier extends AsyncNotifier<void> {
   Future<void> login(
     String email,
     String password,
+    bool rememberMe,
     BuildContext context,
   ) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       await AuthManager.instance.login(
         path: '/auth/login',
+        rememberMe: rememberMe,
         data: {'email': email, 'password': password},
         decoder: (data) => data,
       );
       if (context.mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const UsersView()),
-        );
+        Navigator.of(
+          context,
+        ).pushReplacement(MaterialPageRoute(builder: (_) => const UsersView()));
       }
     });
   }
@@ -46,8 +49,9 @@ class LoginNotifier extends AsyncNotifier<void> {
 
 // ─── Users Provider ────────────────────────────────────────────────────────
 
-final usersProvider =
-    AsyncNotifierProvider<UsersNotifier, List<UserModel>>(UsersNotifier.new);
+final usersProvider = AsyncNotifierProvider<UsersNotifier, List<UserModel>>(
+  UsersNotifier.new,
+);
 
 class UsersNotifier extends AsyncNotifier<List<UserModel>> {
   @override
@@ -67,8 +71,10 @@ class UsersNotifier extends AsyncNotifier<List<UserModel>> {
   }
 
   Future<void> create(String name, String email) async {
-    final result =
-        await CreateUserController(name: name, email: email).callWithResult();
+    final result = await CreateUserController(
+      name: name,
+      email: email,
+    ).callWithResult();
     if (result is Success) await load();
   }
 }

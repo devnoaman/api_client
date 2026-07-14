@@ -85,6 +85,7 @@ class AuthManager {
     required Map<String, dynamic> data,
     bool enableLogs = true,
     required AuthenticationDecoder decoder,
+    bool rememberMe = true,
   }) async {
     final client = NetworkClient().dioClient;
     // var baseUrl = Configuration.baseUrl;
@@ -103,6 +104,10 @@ class AuthManager {
       if (response.statusCode == 200 && response.data != null) {
         var token = findAccessToken(response.data);
         var refreshToken = findRefreshToken(response.data);
+
+        // Propagate the rememberMe preference to both managers before saving.
+        tokensManager.rememberMe = rememberMe;
+        userManager.rememberMe = rememberMe;
 
         logger.debug('token founded: ${token}');
         if (token != null) {

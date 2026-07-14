@@ -18,6 +18,11 @@ class TokensManager {
 
   bool _initialized = false;
 
+  /// When [rememberMe] is `true` (default), tokens are persisted to secure
+  /// storage and survive app restarts. When `false`, tokens live only in the
+  /// in-memory cache and are cleared when the app process ends.
+  bool rememberMe = true;
+
   /// Call this once at app startup (before any API requests) to eagerly
   /// pre-load tokens from secure storage into the in-memory cache.
   ///
@@ -68,19 +73,23 @@ class TokensManager {
   Future<void> saveAccess(String accessToken) async {
     logger.debug("Saving access token");
     _cachedAccessToken = accessToken;
-    return await _storage.write(
-      key: _accessKey,
-      value: accessToken,
-    );
+    if (rememberMe) {
+      return await _storage.write(
+        key: _accessKey,
+        value: accessToken,
+      );
+    }
   }
 
   Future<void> saveRefresh(String refreshToken) async {
     logger.debug("Saving refresh token");
     _cachedRefreshToken = refreshToken;
-    return await _storage.write(
-      key: _refreshKey,
-      value: refreshToken,
-    );
+    if (rememberMe) {
+      return await _storage.write(
+        key: _refreshKey,
+        value: refreshToken,
+      );
+    }
   }
 
   Future<String?> retrieveAccess() async {
@@ -141,7 +150,9 @@ class TokensManager {
     _cachedAccessToken = null;
     _cachedRefreshToken = null;
     _initialized = false;
-    await _storage.deleteAll();
+    if (rememberMe) {
+      await _storage.deleteAll();
+    }
   }
 
   Object? findAccessToken(dynamic data) {

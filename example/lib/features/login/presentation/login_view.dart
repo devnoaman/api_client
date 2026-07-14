@@ -14,6 +14,7 @@ class LoginView extends HookConsumerWidget {
     // Pre-fill with test credentials for quick demo
     final emailCtrl = useTextEditingController(text: 'alice@example.com');
     final passwordCtrl = useTextEditingController(text: 'password123');
+    final rememberMe = useState(true);
 
     return Scaffold(
       appBar: AppBar(title: const Text('api_client — Test Server Demo')),
@@ -70,14 +71,23 @@ class LoginView extends HookConsumerWidget {
                         style: const TextStyle(color: Colors.red),
                       ),
                     ),
+
+                  CheckboxListTile.adaptive(
+                    value: rememberMe.value,
+                    onChanged: (v) {
+                      rememberMe.value = v ?? false;
+                    },
+                    title: Text('Remember me'),
+                  ),
                   FilledButton(
                     onPressed: authState is AsyncLoading
                         ? null
                         : () => authNotifier.login(
-                              emailCtrl.text.trim(),
-                              passwordCtrl.text,
-                              context,
-                            ),
+                            emailCtrl.text.trim(),
+                            passwordCtrl.text,
+                            rememberMe.value,
+                            context,
+                          ),
                     child: authState is AsyncLoading
                         ? const SizedBox(
                             height: 18,
