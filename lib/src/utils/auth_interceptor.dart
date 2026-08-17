@@ -244,12 +244,18 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
       return null;
     } on DioException catch (e) {
       logger.info(
-        'AuthInterceptor: Dio error during refresh token API call: ${e.message}',
+        'AuthInterceptor: Dio error during refresh token API call:\n'
+        '  type    : ${e.type}\n'
+        '  message : ${e.message}\n'
+        '  error   : ${e.error}\n'
+        '  status  : ${e.response?.statusCode}\n'
+        '  baseUrl : ${refreshDio.options.baseUrl}\n'
+        '  refreshUrl: ${Configuration.refreshUrl}',
       );
       AuthManager.instance.emitAuthManagerEvent(
         AuthManagerStreamEvent(
           AuthManagerEventType.refreshFailed,
-          error: '${e.response?.data}',
+          error: 'type=${e.type} message=${e.message} error=${e.error} status=${e.response?.statusCode}',
         ),
       );
       // A 401 or 403 on the refresh endpoint means the refresh token is invalid/expired.

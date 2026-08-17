@@ -2,7 +2,7 @@
 
 import 'package:api_client/api_client.dart';
 import 'package:api_client/src/utils/base_logger.dart';
-import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
+// import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
@@ -196,10 +196,12 @@ class JwtTokenInterceptor extends Interceptor {
           if (accessToken != null) 'Authorization': 'Bearer $accessToken',
         },
       ),
-    )..interceptors.add(AwesomeDioInterceptor());
+    )..interceptors.add(LogInterceptor(responseBody: true, requestBody: true));
 
     try {
-      _staticLogger.info('JwtTokenInterceptor.performRefresh: sending refresh request…');
+      _staticLogger.info(
+        'JwtTokenInterceptor.performRefresh: sending refresh request…',
+      );
       final response = await refreshDio.post(
         Configuration.refreshUrl,
         data: Configuration.refreshData ?? {'refreshToken': refreshToken},
@@ -220,7 +222,9 @@ class JwtTokenInterceptor extends Interceptor {
             AuthManagerStreamEvent(AuthManagerEventType.tokenRefreshed),
           );
 
-          _staticLogger.info('JwtTokenInterceptor.performRefresh: tokens saved successfully.');
+          _staticLogger.info(
+            'JwtTokenInterceptor.performRefresh: tokens saved successfully.',
+          );
           return newAccess;
         }
       }
