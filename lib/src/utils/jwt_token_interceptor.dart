@@ -28,9 +28,10 @@ class JwtTokenInterceptor extends Interceptor {
 
   final _logger = BaseLogger();
 
-  /// Single-flight lock: if a proactive refresh is already in-flight, new
-  /// requests wait on this future rather than issuing their own refresh.
-  Future<String?>? _refreshTokenFuture;
+  /// Single-flight lock shared across all callers (interceptor + manual calls).
+  /// Static so that `TokensManager.retrieveValidAccess` and the interceptor
+  /// never race each other into issuing two simultaneous refresh requests.
+  static Future<String?>? _refreshFuture;
 
   JwtTokenInterceptor(
     this._dio, {
@@ -54,6 +55,7 @@ class JwtTokenInterceptor extends Interceptor {
       return handler.next(options);
     }
 
+    // ignore: deprecated_member_use_from_same_package
     final accessToken = await TokensManager.instance.retrieveAccess();
 
     if (accessToken == null) {
@@ -77,11 +79,11 @@ class JwtTokenInterceptor extends Interceptor {
         '${expiryThreshold.inSeconds}s — refreshing proactively.',
       );
 
-      // Single-flight: only one refresh runs at a time.
-      _refreshTokenFuture ??= _performTokenRefresh();
+      // Single-flight: only one refresh runs at a time (shared with TokensManager).
+      _refreshFuture ??= performRefresh(_dio);
 
       try {
-        final newToken = await _refreshTokenFuture;
+        final newToken = await _refreshFuture;
         if (newToken != null) {
           _logger.info('JwtTokenInterceptor: proactive refresh succeeded.');
           options.headers['Authorization'] = 'Bearer $newToken';
@@ -98,7 +100,7 @@ class JwtTokenInterceptor extends Interceptor {
         _logger.error('JwtTokenInterceptor: proactive refresh threw: $e');
         options.headers['Authorization'] = 'Bearer $accessToken';
       } finally {
-        _refreshTokenFuture = null;
+        _refreshFuture = null;
       }
     }
     // If not about to expire the token header is set by AuthInterceptor.
@@ -136,16 +138,48 @@ class JwtTokenInterceptor extends Interceptor {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Shared refresh logic — single source of truth
+  // ─────────────────────────────────────────────────────────────────────────────
+
   /// Calls the backend refresh endpoint and persists the new tokens.
   ///
+  /// This is a **public static** method so that any caller — the proactive
+  /// [JwtTokenInterceptor], the reactive [AuthInterceptor], or
+  /// [TokensManager.retrieveValidAccess] — all run exactly the same code path.
+  ///
+  /// Pass the current [Dio] instance so the refresh call can inherit the
+  /// correct [BaseOptions] (baseUrl, timeouts).  An independent bare Dio is
+  /// used internally to bypass the interceptor stack and avoid an infinite loop.
+  ///
+  /// Uses the class-level [_refreshFuture] single-flight lock so parallel
+  /// callers share one in-flight request.
+  ///
   /// Returns the new access token string, or `null` on failure.
-  Future<String?> _performTokenRefresh() async {
+  static Future<String?> performRefresh(Dio dio) async {
+    // Single-flight: if a refresh is already running, wait on it.
+    if (_refreshFuture != null) {
+      return _refreshFuture;
+    }
+    _refreshFuture = _doRefresh(dio);
+    try {
+      return await _refreshFuture;
+    } finally {
+      _refreshFuture = null;
+    }
+  }
+
+  static final _staticLogger = BaseLogger();
+
+  static Future<String?> _doRefresh(Dio dio) async {
+    // ignore: deprecated_member_use_from_same_package
     final refreshToken = await TokensManager.instance.retriveRefresh();
+    // ignore: deprecated_member_use_from_same_package
     final accessToken = await TokensManager.instance.retrieveAccess();
 
     if (refreshToken == null) {
-      _logger.warn(
-        'JwtTokenInterceptor: no refresh token available — cannot proactively refresh.',
+      _staticLogger.warn(
+        'JwtTokenInterceptor.performRefresh: no refresh token available.',
       );
       return null;
     }
@@ -153,19 +187,19 @@ class JwtTokenInterceptor extends Interceptor {
     // Use an independent Dio instance so this call bypasses the interceptor stack.
     final refreshDio = Dio(
       BaseOptions(
-        baseUrl: _dio.options.baseUrl,
-        connectTimeout: _dio.options.connectTimeout,
-        receiveTimeout: _dio.options.receiveTimeout,
+        baseUrl: dio.options.baseUrl,
+        connectTimeout: dio.options.connectTimeout,
+        receiveTimeout: dio.options.receiveTimeout,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': 'Bearer $accessToken',
+          if (accessToken != null) 'Authorization': 'Bearer $accessToken',
         },
       ),
     )..interceptors.add(AwesomeDioInterceptor());
 
     try {
-      _logger.info('JwtTokenInterceptor: sending proactive refresh request…');
+      _staticLogger.info('JwtTokenInterceptor.performRefresh: sending refresh request…');
       final response = await refreshDio.post(
         Configuration.refreshUrl,
         data: Configuration.refreshData ?? {'refreshToken': refreshToken},
@@ -186,23 +220,22 @@ class JwtTokenInterceptor extends Interceptor {
             AuthManagerStreamEvent(AuthManagerEventType.tokenRefreshed),
           );
 
-          _logger.info('JwtTokenInterceptor: tokens saved successfully.');
+          _staticLogger.info('JwtTokenInterceptor.performRefresh: tokens saved successfully.');
           return newAccess;
         }
       }
 
-      _logger.warn(
-        'JwtTokenInterceptor: refresh call returned status '
+      _staticLogger.warn(
+        'JwtTokenInterceptor.performRefresh: refresh returned status '
         '${response.statusCode} — treating as failure.',
       );
       return null;
     } on DioException catch (e) {
-      _logger.error(
-        'JwtTokenInterceptor: Dio error during proactive refresh: ${e.message}',
+      _staticLogger.error(
+        'JwtTokenInterceptor.performRefresh: Dio error: ${e.message}',
       );
 
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
-        // Refresh token itself is invalid/expired — emit session-expired event.
         AuthManager.instance.emitAuthManagerEvent(
           AuthManagerStreamEvent(
             AuthManagerEventType.sessionExpired,
@@ -219,8 +252,8 @@ class JwtTokenInterceptor extends Interceptor {
       }
       return null;
     } catch (e) {
-      _logger.error(
-        'JwtTokenInterceptor: unexpected error during proactive refresh: $e',
+      _staticLogger.error(
+        'JwtTokenInterceptor.performRefresh: unexpected error: $e',
       );
       return null;
     }

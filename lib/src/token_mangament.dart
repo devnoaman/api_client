@@ -1,6 +1,7 @@
 import 'package:api_client/api_client.dart';
 import 'package:api_client/src/utils/base_logger.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 class TokensManager {
   TokensManager._();
@@ -41,7 +42,9 @@ class TokensManager {
       _cachedAccessToken = await _storage.read(key: _accessKey);
       _cachedRefreshToken = await _storage.read(key: _refreshKey);
       if (_cachedAccessToken != null) {
-        logger.debug('TokensManager initialized: access token loaded from storage');
+        logger.debug(
+          'TokensManager initialized: access token loaded from storage',
+        );
       } else {
         logger.debug('TokensManager initialized: no access token in storage');
       }
@@ -50,7 +53,9 @@ class TokensManager {
       // key that no longer exists (cleared cookies/session, different origin,
       // or browser key rotation). The stored data is permanently unreadable —
       // wipe it so the user is prompted to re-authenticate cleanly.
-      logger.warn('TokensManager.initialize() storage corrupted ($e). Clearing all tokens.');
+      logger.warn(
+        'TokensManager.initialize() storage corrupted ($e). Clearing all tokens.',
+      );
       _cachedAccessToken = null;
       _cachedRefreshToken = null;
       try {
@@ -92,6 +97,15 @@ class TokensManager {
     }
   }
 
+  /// Returns the raw access token from cache or secure storage **without**
+  /// checking expiry.
+  ///
+  /// Use [retrieveValidAccess] (or its alias [retrieveNotExpiredToken]) instead,
+  /// which automatically refreshes the token when it is expired or about to expire.
+  @Deprecated(
+    'Use retrieveValidAccess() or retrieveNotExpiredToken() instead. '
+    'retrieveAccess() does not check token expiry and may return an expired token.',
+  )
   Future<String?> retrieveAccess() async {
     if (_cachedAccessToken != null) {
       logger.debug("Access token found (cache)");
@@ -111,6 +125,80 @@ class TokensManager {
       return null;
     }
   }
+
+  // Internal: same as retrieveAccess() but without the deprecation warning,
+  // for use within this package (interceptors, etc.) where raw token access
+  // is intentional.
+  Future<String?> _retrieveAccessRaw() async {
+    if (_cachedAccessToken != null) return _cachedAccessToken;
+    try {
+      final String? access = await _storage.read(key: _accessKey);
+      if (access != null) _cachedAccessToken = access;
+      return access;
+    } catch (_) {
+      return null;
+    }
+  }
+
+
+  /// Retrieves a valid, unexpired access token.
+  ///
+  /// 1. Reads the current access token from cache / secure storage.
+  /// 2. If it is a decodable JWT that is already expired (or will expire within
+  ///    [threshold], which defaults to [Configuration.tokenExpiryThreshold]),
+  ///    the refresh flow is triggered automatically.
+  /// 3. The refresh is performed by [JwtTokenInterceptor.performRefresh] — the
+  ///    **same code path** used by the proactive interceptor — so there is a
+  ///    single source of truth and a shared single-flight lock.
+  ///
+  /// Set [forceRefresh] to `true` to skip the expiry check and refresh
+  /// unconditionally.
+  ///
+  /// Returns the valid access token, or `null` if no token exists or refresh
+  /// fails.
+  Future<String?> retrieveValidAccess({
+    Duration? threshold,
+    bool forceRefresh = false,
+  }) async {
+    if (forceRefresh) {
+      logger.debug('retrieveValidAccess: forceRefresh=true, refreshing…');
+      return JwtTokenInterceptor.performRefresh(NetworkClient.base().dioClient);
+    }
+
+    final token = await _retrieveAccessRaw();
+
+    if (token == null) {
+      logger.debug('retrieveValidAccess: no token found, attempting refresh…');
+      return JwtTokenInterceptor.performRefresh(NetworkClient.base().dioClient);
+    }
+
+    // Only treat it as expired when we can actually decode it as a JWT.
+    final bool expired;
+    try {
+      final expiry = JwtDecoder.getExpirationDate(token);
+      final remaining = expiry.difference(DateTime.now().toUtc());
+      final safeThreshold = threshold ?? Configuration.tokenExpiryThreshold;
+      expired = remaining <= safeThreshold;
+      logger.debug(
+        'retrieveValidAccess: token expires in ${remaining.inSeconds}s '
+        '(threshold ${safeThreshold.inSeconds}s) — expired=$expired',
+      );
+    } catch (_) {
+      // Opaque / non-JWT token — assume it is valid and return as-is.
+      logger.debug('retrieveValidAccess: token is not a decodable JWT, returning as-is.');
+      return token;
+    }
+
+    if (!expired) return token;
+
+    logger.info('retrieveValidAccess: token expired or about to expire, refreshing…');
+    return JwtTokenInterceptor.performRefresh(NetworkClient.base().dioClient);
+  }
+
+  /// Alias for [retrieveValidAccess].
+  Future<String?> retrieveNotExpiredToken({Duration? threshold}) =>
+      retrieveValidAccess(threshold: threshold);
+
 
   Future<String?> retriveRefresh() async {
     if (_cachedRefreshToken != null) {

@@ -61,6 +61,7 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
       return handler.next(options);
     }
 
+    // ignore: deprecated_member_use_from_same_package
     final accessToken = await TokensManager.instance.retrieveAccess();
 
     if (accessToken != null) {
@@ -186,6 +187,7 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
   /// Returns the new access token on success, or null on failure.
   Future<String?> _performTokenRefresh() async {
     final refreshToken = await TokensManager.instance.retriveRefresh();
+    // ignore: deprecated_member_use_from_same_package
     final accessToken = await TokensManager.instance.retrieveAccess();
 
     if (refreshToken == null) {
