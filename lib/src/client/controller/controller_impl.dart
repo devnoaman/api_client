@@ -36,7 +36,7 @@ base class BaseController<T> extends ApiController<T> {
         headers: baseHeaders,
         extra: {
           'enableLogs': enableLogs ?? true,
-          'authenticated': authenticated ?? false,
+          'authenticated': authenticated ?? true,
         },
       );
     }
