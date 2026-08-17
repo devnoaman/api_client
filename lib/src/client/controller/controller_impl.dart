@@ -10,7 +10,7 @@ base class BaseController<T> extends ApiController<T> {
     super.options,
     required super.responseDecoder,
     super.enableLogs = true,
-    super.authenticated = false,
+    super.authenticated = true,
     super.method = HTTPMethod.get,
     super.successStatusCodes = const [200],
   });
