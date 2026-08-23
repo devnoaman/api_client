@@ -2,7 +2,7 @@
 
 import 'package:api_client/api_client.dart';
 import 'package:api_client/src/utils/network_client_logger_mixin.dart';
-import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
+// import 'package:awesome_dio_interceptor/awesome_dio_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -206,7 +206,7 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
         receiveTimeout: _dio.options.receiveTimeout,
         headers: {'Authorization': 'Bearer $accessToken'},
       ),
-    )..interceptors.addAll([AwesomeDioInterceptor()]);
+    )..interceptors.addAll([LogInterceptor()]);
     // refreshDio.interceptors.addAll([AwesomeDioInterceptor()]);
 
     try {
@@ -255,7 +255,8 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
       AuthManager.instance.emitAuthManagerEvent(
         AuthManagerStreamEvent(
           AuthManagerEventType.refreshFailed,
-          error: 'type=${e.type} message=${e.message} error=${e.error} status=${e.response?.statusCode}',
+          error:
+              'type=${e.type} message=${e.message} error=${e.error} status=${e.response?.statusCode}',
         ),
       );
       // A 401 or 403 on the refresh endpoint means the refresh token is invalid/expired.
