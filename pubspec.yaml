@@ -18,6 +18,7 @@ dependencies:
   sentry_dio: ^9.8.0
   sentry_flutter: ^9.8.0
   colorize: ^3.0.0
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

@@ -221,25 +221,51 @@ class TokensManager {
   }
 
   Future<Map<String, dynamic>?> retriveAll() async {
-    final String? access = await _storage.read(
-      key: _accessKey,
-    );
-    final String? refresh = await _storage.read(
-      key: _refreshKey,
-    );
+    final String? access =
+        _cachedAccessToken ?? await _storage.read(key: _accessKey);
+    final String? refresh =
+        _cachedRefreshToken ?? await _storage.read(key: _refreshKey);
     return {
       "access": access,
       "refresh": refresh,
     };
   }
 
+  /// Alias for [retriveAll] with standard spelling.
+  Future<Map<String, dynamic>?> retrieveAll() => retriveAll();
+
+  /// Alias for [retriveRefresh] with standard spelling.
+  Future<String?> retrieveRefresh() => retriveRefresh();
+
+  /// Removes only the access token from cache and persistent storage.
+  Future<void> removeAccess() async {
+    _cachedAccessToken = null;
+    try {
+      await _storage.delete(key: _accessKey);
+    } catch (_) {}
+  }
+
+  /// Removes only the refresh token from cache and persistent storage.
+  Future<void> removeRefresh() async {
+    _cachedRefreshToken = null;
+    try {
+      await _storage.delete(key: _refreshKey);
+    } catch (_) {}
+  }
+
+  /// Completely removes both access and refresh tokens from in-memory cache
+  /// and persistent secure storage.
   Future<void> deleteAll() async {
     logger.warn("Deleting all tokens");
     _cachedAccessToken = null;
     _cachedRefreshToken = null;
     _initialized = false;
-    if (rememberMe) {
+    try {
+      await _storage.delete(key: _accessKey);
+      await _storage.delete(key: _refreshKey);
       await _storage.deleteAll();
+    } catch (e) {
+      logger.warn('Error deleting tokens from storage: $e');
     }
   }
 

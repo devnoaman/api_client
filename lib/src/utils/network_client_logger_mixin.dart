@@ -1,7 +1,6 @@
 // lib/auth/auth_interceptor.dart
 
 import 'dart:convert';
-import 'package:api_client/src/utils/auth_interceptor.dart';
 import 'package:api_client/src/utils/base_logger.dart';
 import 'package:colorize/colorize.dart';
 import 'package:dio/dio.dart';

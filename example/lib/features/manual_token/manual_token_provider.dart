@@ -106,7 +106,7 @@ class ManualTokenNotifier extends Notifier<ManualTokenState> {
           users: d as List<UserModel>,
           log: '${state.log}\n\n✅ GET /users succeeded — token was picked up automatically',
         );
-      case Failed(error: final e, stackTrace: final st):
+      case Failed(error: final e):
         state = state.copyWith(
           isLoading: false,
           error: 'Protected endpoint failed: $e',

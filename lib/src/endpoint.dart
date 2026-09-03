@@ -50,20 +50,32 @@ abstract class Endpoint<T> {
     'use [call]/[callWithResult] instead,change http method type via method param',
   )
   Future<T?> get() async {
-    var tokern = TokensManager.instance;
-    var accessToken = await tokern.retrieveAccess();
     final client = NetworkClient().dioClient;
-    client.options.headers.addAll({
-      'Authorization': ' Bearer $accessToken',
-      // ...?headers,
-    });
+    final requestHeaders = Map<String, dynamic>.from(
+      options?.headers ?? Configuration.headers,
+    );
+    final requestExtra = Map<String, dynamic>.from(options?.extra ?? {});
+
+    if (authenticated ?? false) {
+      requestExtra['authenticated'] = true;
+      final accessToken = await TokensManager.instance.retrieveAccess();
+      if (accessToken != null) {
+        requestHeaders['Authorization'] = 'Bearer $accessToken';
+      }
+    } else {
+      requestExtra['authenticated'] = false;
+      requestHeaders.remove('Authorization');
+      client.options.headers.remove('Authorization');
+    }
+
     try {
       final response = await client.get(
         path,
         data: data,
         queryParameters: queryParameters,
-
-        options: options,
+        options: options == null
+            ? Options(headers: requestHeaders, extra: requestExtra)
+            : options?.copyWith(headers: requestHeaders, extra: requestExtra),
         cancelToken: cancelToken,
       );
       if (response.statusCode == 200 && response.data != null) {
@@ -81,38 +93,39 @@ abstract class Endpoint<T> {
     Map<String, dynamic>? queryParameter,
   ]) async {
     final client = NetworkClient().dioClient;
-    var tokern = TokensManager.instance;
-    var accessToken = await tokern.retrieveAccess();
+    final requestHeaders = Map<String, dynamic>.from(
+      options?.headers ?? Configuration.headers,
+    );
+    final requestExtra = Map<String, dynamic>.from(options?.extra ?? {});
+
     if (authenticated ?? false) {
-      client.options.headers.addAll({
-        'Authorization': ' Bearer $accessToken',
-        // ...?headers,
-      });
+      requestExtra['authenticated'] = true;
+      final accessToken = await TokensManager.instance.retrieveAccess();
+      if (accessToken != null) {
+        requestHeaders['Authorization'] = 'Bearer $accessToken';
+      }
+    } else {
+      requestExtra['authenticated'] = false;
+      requestHeaders.remove('Authorization');
+      client.options.headers.remove('Authorization');
     }
+
     try {
       final response = await client.request(
         path,
         data: data,
         queryParameters: queryParameter ?? queryParameters,
-
         options: options == null
             ? Options(
                 method: method?.toStringName,
-                headers: Configuration.headers,
+                headers: requestHeaders,
+                extra: requestExtra,
               )
             : options?.copyWith(
                 method: method?.toStringName,
-                headers: options?.headers ?? Configuration.headers,
+                headers: requestHeaders,
+                extra: requestExtra,
               ),
-
-        //  Options(
-        //   method: method?.toStringName,
-        //   headers: Configuration.headers,
-        // ),
-
-        //  options?.copyWith(
-        //   method: method?.toStringName,
-        // ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
       );
@@ -131,36 +144,39 @@ abstract class Endpoint<T> {
     Map<String, dynamic>? queryParameter,
   ]) async {
     final client = NetworkClient().dioClient;
-    var tokern = TokensManager.instance;
-    var accessToken = await tokern.retrieveAccess();
+    final requestHeaders = Map<String, dynamic>.from(
+      options?.headers ?? Configuration.headers,
+    );
+    final requestExtra = Map<String, dynamic>.from(options?.extra ?? {});
+
     if (authenticated ?? false) {
-      client.options.headers.addAll({
-        'Authorization': ' Bearer $accessToken',
-      });
+      requestExtra['authenticated'] = true;
+      final accessToken = await TokensManager.instance.retrieveAccess();
+      if (accessToken != null) {
+        requestHeaders['Authorization'] = 'Bearer $accessToken';
+      }
+    } else {
+      requestExtra['authenticated'] = false;
+      requestHeaders.remove('Authorization');
+      client.options.headers.remove('Authorization');
     }
+
     try {
       final response = await client.request(
         path,
         data: data,
         queryParameters: queryParameter ?? queryParameters,
-
         options: options == null
             ? Options(
                 method: method?.toStringName,
-                headers: Configuration.headers,
+                headers: requestHeaders,
+                extra: requestExtra,
               )
             : options?.copyWith(
                 method: method?.toStringName,
-                headers: options?.headers ?? Configuration.headers,
+                headers: requestHeaders,
+                extra: requestExtra,
               ),
-
-        // Options(
-        //   method: method?.toStringName,
-        // ),
-
-        //  options?.copyWith(
-        //   method: method?.toStringName,
-        // ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
       );

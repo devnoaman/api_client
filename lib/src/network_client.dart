@@ -1,4 +1,5 @@
 import 'package:api_client/api_client.dart';
+import 'package:api_client/src/security/adapter/certificate_pinning_adapter.dart';
 import 'package:api_client/src/utils/auth_interceptor.dart';
 import 'package:api_client/src/utils/base_logger.dart';
 import 'package:dio/dio.dart';
@@ -12,6 +13,9 @@ class NetworkClient {
   // The single, static instance of NetworkClient
   static final NetworkClient _instance = NetworkClient._();
 
+  /// The singleton instance of [NetworkClient] (matching [AuthManager.instance] and [TokensManager.instance]).
+  static NetworkClient get instance => _instance;
+
   // The Dio instance, now nullable. It will be null until initialized.
   Dio? _dio;
   static final logger = BaseLogger();
@@ -19,7 +23,13 @@ class NetworkClient {
   // Factory constructor: This is the entry point to get the singleton.
   // It takes the baseUrl as an argument *only the first time* it's called
   // to initialize the client.
-  factory NetworkClient({String? baseUrl}) {
+  factory NetworkClient({
+    String? baseUrl,
+    CertificatePinningConfig? certificatePinning,
+    LogoutCallback? onLogout,
+    LogoutCallback? onSessionExpired,
+    ShowMessageCallback? onShowMessage,
+  }) {
     // Check if the _dio client has already been initialized for this instance.
     if (_instance._dio == null) {
       // If not initialized, a baseUrl MUST be provided.
@@ -32,6 +42,11 @@ class NetworkClient {
       _instance._initializeClient(
         baseUrl ?? Configuration.baseUrl,
         headers: Configuration.headers,
+        certificatePinning:
+            certificatePinning ?? Configuration.certificatePinning,
+        onLogout: onLogout,
+        onSessionExpired: onSessionExpired,
+        onShowMessage: onShowMessage,
       );
     } else {
       // If already initialized, and a baseUrl is provided again, you might
@@ -56,6 +71,10 @@ class NetworkClient {
   void _initializeClient(
     String baseUrl, {
     required Map<String, String> headers,
+    CertificatePinningConfig? certificatePinning,
+    LogoutCallback? onLogout,
+    LogoutCallback? onSessionExpired,
+    ShowMessageCallback? onShowMessage,
   }) {
     // var authManager = AuthManager.instance;
 
@@ -108,10 +127,31 @@ class NetworkClient {
       ),
       // 2️⃣  Reactive check: handles 401 responses (token was already expired
       //     or the server rejected it for another reason).
-      AuthInterceptor(_dio!, () async {}, (m) {}),
+      AuthInterceptor(
+        _dio!,
+        onLogout: onLogout ?? Configuration.onLogout,
+        onShowMessage: onShowMessage ?? Configuration.onShowMessage,
+        onSessionExpired: onSessionExpired ?? Configuration.onSessionExpired,
+      ),
     ]);
 
     _dio?.addSentry();
+
+    // 3️⃣ SSL / TLS Certificate and Public Key (SPKI) Pinning
+    final pinConfig = certificatePinning ?? Configuration.certificatePinning;
+    if (pinConfig != null && _dio != null) {
+      setupCertificatePinning(_dio!, pinConfig);
+    }
+  }
+
+  /// Dynamically applies or updates SSL / TLS certificate pinning configuration on the active Dio instance.
+  void applyCertificatePinning(CertificatePinningConfig config) {
+    if (_dio == null) {
+      throw StateError(
+        'NetworkClient has not been initialized. Call NetworkClient(baseUrl: "YOUR_BASE_URL") before applying certificate pinning.',
+      );
+    }
+    setupCertificatePinning(_dio!, config);
   }
 
   // Getter to provide the initialized Dio client
@@ -125,6 +165,18 @@ class NetworkClient {
     // The '!' asserts that _dio is not null because we just checked it.
     return _dio!;
   }
+
+  /// Static shortcut to access the initialized [Dio] client directly.
+  /// Example: `NetworkClient.dio` or `NetworkClient.dio.instance`
+  static Dio get dio => _instance.dioClient;
+
+  /// Static shortcut to access the initialized [Dio] client directly.
+  /// Example: `NetworkClient.client`
+  static Dio get client => _instance.dioClient;
 }
 
-
+/// Allows chaining `.instance` on the [Dio] client (e.g. `NetworkClient.dio.instance`),
+/// returning the active [Dio] instance.
+extension DioInstanceExtension on Dio {
+  Dio get instance => this;
+}

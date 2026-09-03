@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-typedef AuthenticationDecoder<T> = T Function(dynamic data);
 
 class StorageManager {
   // Private constructor remains the same.
@@ -29,26 +28,44 @@ class StorageManager {
   String? _inMemoryData;
 
   Future<void> save(String value) async {
+    _inMemoryData = value;
     if (rememberMe) {
       return await _storage.write(key: _userKey, value: value);
-    } else {
-      _inMemoryData = value;
     }
   }
 
+  /// Completely removes user data from both in-memory cache and persistent storage.
   Future<void> remove() async {
     _inMemoryData = null;
-    if (rememberMe) {
-      return await _storage.delete(key: _userKey);
-    }
+    try {
+      await _storage.delete(key: _userKey);
+      await _storage.deleteAll();
+    } catch (_) {}
   }
 
+  /// Alias for [remove].
+  Future<void> clear() => remove();
+
+  /// Alias for [remove].
+  Future<void> deleteAll() => remove();
+
   Future<Map<String, dynamic>?> retrive() async {
-    final String? userJson =
-        rememberMe ? await _storage.read(key: _userKey) : _inMemoryData;
+    String? userJson = _inMemoryData;
+    if (userJson == null && rememberMe) {
+      try {
+        userJson = await _storage.read(key: _userKey);
+      } catch (_) {}
+    }
     if (userJson == null) {
       return null;
     }
-    return jsonDecode(userJson) as Map<String, dynamic>;
+    try {
+      return jsonDecode(userJson) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
   }
+
+  /// Alias for [retrive] with standard spelling.
+  Future<Map<String, dynamic>?> retrieve() => retrive();
 }

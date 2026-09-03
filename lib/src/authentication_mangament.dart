@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:api_client/api_client.dart';
-import 'package:api_client/src/storage_mangament.dart';
 import 'package:api_client/src/utils/base_logger.dart';
 import 'package:dio/dio.dart';
 
@@ -67,8 +66,6 @@ class AuthManager {
 
   // The decoder is part of the instance state.
   // final AuthDecoder<T> responseDecoder;
-  static const String _userKey = 'user_model';
-  static const String _tokenKey = 'token_key';
   static Future<void> Function()? onRemove;
 
   // static const FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -109,16 +106,24 @@ class AuthManager {
         tokensManager.rememberMe = rememberMe;
         userManager.rememberMe = rememberMe;
 
-        logger.debug('token founded: ${token}');
+        logger.debug('token founded: $token');
         if (token != null) {
           await tokensManager.saveAccess(
             token.toString(),
           );
+        }
+        if (refreshToken != null) {
           await tokensManager.saveRefresh(
             refreshToken.toString(),
           );
         }
-        userManager.save(jsonEncode(response.data));
+        await userManager.save(jsonEncode(response.data));
+        emitAuthManagerEvent(
+          AuthManagerStreamEvent(
+            AuthManagerEventType.loggedIn,
+            data: response.data,
+          ),
+        );
         var decoded = decoder(response.data);
         return decoded;
       }
@@ -190,19 +195,27 @@ class AuthManager {
     bool callApi = true,
     bool? authenticated = false,
   }) async {
-    // final client = NetworkClient().dioClient;
-    final client = NetworkClient().dioClient;
-
     var user = await me();
-    await onRemove?.call();
+    try {
+      await onRemove?.call();
+    } catch (e) {
+      logger.warn('AuthManager.logout: onRemove callback failed: $e');
+    }
+
     if (!callApi) {
-      await userManager.remove();
+      await clearSession();
       return;
     }
-    var token = (user != null) ? findAccessToken(user) as String : null;
+
+    final client = NetworkClient().dioClient;
+
+    var token = (user != null) ? findAccessToken(user)?.toString() : null;
+    token ??= await tokensManager.retrieveAccess();
 
     try {
-      var ob = Options(headers: {'Authorization': 'Bearer $token'});
+      var ob = Options(headers: {
+        if (token != null) 'Authorization': 'Bearer $token',
+      });
       var response = await client.post(
         path,
         data: data ?? Configuration.logoutData,
@@ -222,8 +235,21 @@ class AuthManager {
       logger.error('Unexpected error on POST request to $path: $e');
       return null;
     } finally {
-      await userManager.remove();
+      await clearSession();
     }
+  }
+
+  /// Clears access token, refresh token, and user data completely from both
+  /// memory cache and persistent storage without calling a remote logout API.
+  Future<void> clearSession() async {
+    await userManager.remove();
+    await tokensManager.deleteAll();
+    try {
+      NetworkClient.base().dioClient.options.headers.remove('Authorization');
+    } catch (_) {}
+    emitAuthManagerEvent(
+      AuthManagerStreamEvent(AuthManagerEventType.loggedOut),
+    );
   }
 
   Future<Map<String, dynamic>?> me({

@@ -1,5 +1,4 @@
 import 'package:api_client/api_client.dart';
-import 'package:api_client/src/utils/base_logger.dart';
 import 'package:dio/dio.dart';
 
 class EndpointImpl<T> extends Endpoint<T> {
@@ -11,18 +10,27 @@ class EndpointImpl<T> extends Endpoint<T> {
     super.authenticated = false,
     super.method = HTTPMethod.get,
   });
-  final logger = BaseLogger();
 
   @override
   Future<dynamic> call([Map<String, dynamic>? queryParameter]) async {
     final client = NetworkClient().dioClient;
-    var tokern = TokensManager.instance;
-    var accessToken = await tokern.retrieveAccess();
+    final requestHeaders = Map<String, dynamic>.from(
+      options?.headers ?? Configuration.headers,
+    );
+    final requestExtra = Map<String, dynamic>.from(options?.extra ?? {});
+
     if (authenticated ?? false) {
-      client.options.headers.addAll({
-        'Authorization': ' Bearer $accessToken',
-      });
+      requestExtra['authenticated'] = true;
+      final accessToken = await TokensManager.instance.retrieveAccess();
+      if (accessToken != null) {
+        requestHeaders['Authorization'] = 'Bearer $accessToken';
+      }
+    } else {
+      requestExtra['authenticated'] = false;
+      requestHeaders.remove('Authorization');
+      client.options.headers.remove('Authorization');
     }
+
     try {
       final response = await client.request(
         path,
@@ -31,11 +39,13 @@ class EndpointImpl<T> extends Endpoint<T> {
         options: options == null
             ? Options(
                 method: method?.toStringName,
-                headers: Configuration.headers,
+                headers: requestHeaders,
+                extra: requestExtra,
               )
             : options?.copyWith(
                 method: method?.toStringName,
-                headers: options?.headers ?? Configuration.headers,
+                headers: requestHeaders,
+                extra: requestExtra,
               ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,
@@ -56,13 +66,23 @@ class EndpointImpl<T> extends Endpoint<T> {
     Map<String, dynamic>? queryParameter,
   ]) async {
     final client = NetworkClient().dioClient;
-    var tokern = TokensManager.instance;
-    var accessToken = await tokern.retrieveAccess();
+    final requestHeaders = Map<String, dynamic>.from(
+      options?.headers ?? Configuration.headers,
+    );
+    final requestExtra = Map<String, dynamic>.from(options?.extra ?? {});
+
     if (authenticated ?? false) {
-      client.options.headers.addAll({
-        'Authorization': ' Bearer $accessToken',
-      });
+      requestExtra['authenticated'] = true;
+      final accessToken = await TokensManager.instance.retrieveAccess();
+      if (accessToken != null) {
+        requestHeaders['Authorization'] = 'Bearer $accessToken';
+      }
+    } else {
+      requestExtra['authenticated'] = false;
+      requestHeaders.remove('Authorization');
+      client.options.headers.remove('Authorization');
     }
+
     try {
       final response = await client.request(
         path,
@@ -71,11 +91,13 @@ class EndpointImpl<T> extends Endpoint<T> {
         options: options == null
             ? Options(
                 method: method?.toStringName,
-                headers: Configuration.headers,
+                headers: requestHeaders,
+                extra: requestExtra,
               )
             : options?.copyWith(
                 method: method?.toStringName,
-                headers: options?.headers ?? Configuration.headers,
+                headers: requestHeaders,
+                extra: requestExtra,
               ),
         cancelToken: cancelToken,
         onReceiveProgress: onReceiveProgress,

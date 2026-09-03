@@ -1,4 +1,3 @@
-import 'package:api_client/src/client/http_method.dart';
 import 'package:dio/dio.dart' show Options, CancelToken, ProgressCallback;
 
 import '../../../api_client.dart';
