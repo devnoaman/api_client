@@ -26,6 +26,10 @@ class NetworkClient {
   factory NetworkClient({
     String? baseUrl,
     CertificatePinningConfig? certificatePinning,
+    @Deprecated(
+      'Refresh failure no longer logs out. Use onSessionExpired and clear '
+      'the session yourself if needed.',
+    )
     LogoutCallback? onLogout,
     LogoutCallback? onSessionExpired,
     ShowMessageCallback? onShowMessage,
@@ -72,6 +76,9 @@ class NetworkClient {
     String baseUrl, {
     required Map<String, String> headers,
     CertificatePinningConfig? certificatePinning,
+    @Deprecated(
+      'Refresh failure no longer logs out. Use onSessionExpired instead.',
+    )
     LogoutCallback? onLogout,
     LogoutCallback? onSessionExpired,
     ShowMessageCallback? onShowMessage,
@@ -129,7 +136,6 @@ class NetworkClient {
       //     or the server rejected it for another reason).
       AuthInterceptor(
         _dio!,
-        onLogout: onLogout ?? Configuration.onLogout,
         onShowMessage: onShowMessage ?? Configuration.onShowMessage,
         onSessionExpired: onSessionExpired ?? Configuration.onSessionExpired,
       ),

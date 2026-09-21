@@ -28,24 +28,24 @@
 const http = require('http');
 const crypto = require('crypto');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3015;
 const ACCESS_TTL_MS = parseInt(process.env.ACCESS_TTL_MS ?? '30000');  // 30s
 const REFRESH_TTL_MS = 5 * 60 * 1000; // 5m
 
 // ─── In-memory store ────────────────────────────────────────────────────────
 const USERS = [
-  { id: '1', name: 'Alice',   email: 'alice@example.com', role: 'admin' },
-  { id: '2', name: 'Bob',     email: 'bob@example.com',   role: 'user'  },
+  { id: '1', name: 'Alice', email: 'alice@example.com', role: 'admin' },
+  { id: '2', name: 'Bob', email: 'bob@example.com', role: 'user' },
   { id: '3', name: 'Charlie', email: 'charlie@example.com', role: 'user' },
 ];
 
 const CREDENTIALS = {
   'alice@example.com': 'password123',
-  'bob@example.com':   'password456',
+  'bob@example.com': 'password456',
 };
 
 // token -> { userId, expiresAt }
-const accessStore  = new Map();
+const accessStore = new Map();
 const refreshStore = new Map();
 const JWT_SECRET = 'my_super_secret_key_for_testing';
 
@@ -67,9 +67,9 @@ function makeJwt(userId, ttlMs) {
 }
 
 function issueTokens(userId) {
-  const access  = makeJwt(userId, ACCESS_TTL_MS);
+  const access = makeJwt(userId, ACCESS_TTL_MS);
   const refresh = makeToken();
-  accessStore.set(access,   { userId, expiresAt: Date.now() + ACCESS_TTL_MS });
+  accessStore.set(access, { userId, expiresAt: Date.now() + ACCESS_TTL_MS });
   refreshStore.set(refresh, { userId, expiresAt: Date.now() + REFRESH_TTL_MS });
   return { access, refresh };
 }
@@ -132,7 +132,7 @@ function requireAuth(req, res) {
   if (!record) {
     send(res, 401, {
       error: 'Access token expired or invalid',
-      hint:  'Use POST /auth/refresh to get a new token',
+      hint: 'Use POST /auth/refresh to get a new token',
     });
     return null;
   }
@@ -159,7 +159,7 @@ async function handleLogin(req, res) {
   log(`Issued tokens for ${email} — access expires in ${ACCESS_TTL_MS / 1000}s`);
   send(res, 200, {
     user,
-    accessToken:  tokens.access,
+    accessToken: tokens.access,
     refreshToken: tokens.refresh,
   });
 }
@@ -182,7 +182,7 @@ async function handleTokenOnly(req, res) {
     return send(res, 401, { error: 'Invalid credentials' });
   }
 
-  const user  = USERS.find(u => u.email === email);
+  const user = USERS.find(u => u.email === email);
   const token = makeJwt(user.id, ACCESS_TTL_MS);
   accessStore.set(token, { userId: user.id, expiresAt: Date.now() + ACCESS_TTL_MS });
 
@@ -212,7 +212,7 @@ async function handleRefresh(req, res) {
 
   log(`Rotated tokens for userId=${record.userId}`);
   send(res, 200, {
-    accessToken:  tokens.access,
+    accessToken: tokens.access,
     refreshToken: tokens.refresh,
   });
 }
@@ -260,8 +260,8 @@ async function handleCreateUser(req, res) {
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 async function router(req, res) {
-  const url    = new URL(req.url, `http://localhost:${PORT}`);
-  const path   = url.pathname;
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const path = url.pathname;
   const method = req.method.toUpperCase();
 
   log(`${method} ${path}`);
@@ -273,13 +273,13 @@ async function router(req, res) {
   if (method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
   try {
-    if (method === 'POST' && path === '/auth/login')       return await handleLogin(req, res);
-    if (method === 'POST' && path === '/auth/token-only')   return await handleTokenOnly(req, res);
+    if (method === 'POST' && path === '/auth/login') return await handleLogin(req, res);
+    if (method === 'POST' && path === '/auth/token-only') return await handleTokenOnly(req, res);
     if (method === 'POST' && path === '/auth/refresh') return await handleRefresh(req, res);
-    if (method === 'POST' && path === '/auth/logout')  return await handleLogout(req, res);
-    if (method === 'GET'  && path === '/public/ping')  return handlePing(req, res);
-    if (method === 'GET'  && path === '/users')        return handleListUsers(req, res);
-    if (method === 'POST' && path === '/users')        return await handleCreateUser(req, res);
+    if (method === 'POST' && path === '/auth/logout') return await handleLogout(req, res);
+    if (method === 'GET' && path === '/public/ping') return handlePing(req, res);
+    if (method === 'GET' && path === '/users') return handleListUsers(req, res);
+    if (method === 'POST' && path === '/users') return await handleCreateUser(req, res);
 
     // GET /users/:id
     const userMatch = path.match(/^\/users\/([^/]+)$/);

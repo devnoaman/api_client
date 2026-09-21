@@ -18,10 +18,10 @@ typedef ShowMessageCallback = void Function(String message);
 /// 3. When a 401 is caught, it attempts to refresh the access token using a refresh token.
 /// 4. It handles concurrent requests that fail with a 401, ensuring that the token is only refreshed once.
 /// 5. If the token refresh is successful, it retries the original failed request(s) with the new token.
-/// 6. If the token refresh fails, it triggers a global logout flow.
+/// 6. If the token refresh fails, it notifies the client via stream events and
+///    callbacks — the client decides whether to clear the session.
 class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
   final Dio _dio;
-  final LogoutCallback? _onLogout;
   final ShowMessageCallback? _onShowMessage;
   final LogoutCallback? _onSessionExpired;
 
@@ -34,14 +34,25 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
   @visibleForTesting
   Future<String?>? refreshTokenFuture;
 
+  /// Optional adapter used only by the dedicated refresh Dio.
+  ///
+  /// Tests set this to mock refresh-endpoint responses without hitting the
+  /// network. Production code leaves it null.
+  @visibleForTesting
+  static HttpClientAdapter? debugRefreshHttpClientAdapter;
+
   AuthInterceptor(
     this._dio, {
+    @Deprecated(
+      'Refresh failure no longer logs out. Listen to '
+      'AuthManagerEventType.sessionExpired (or onSessionExpired) and call '
+      'AuthManager.clearSession yourself if needed.',
+    )
     LogoutCallback? onLogout,
     ShowMessageCallback? onShowMessage,
     LogoutCallback? onSessionExpired,
-  })  : _onLogout = onLogout,
-        _onShowMessage = onShowMessage,
-        _onSessionExpired = onSessionExpired;
+  }) : _onShowMessage = onShowMessage,
+       _onSessionExpired = onSessionExpired;
 
   /// Called before a request is sent.
   ///
@@ -67,7 +78,9 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
 
     // Wait if a token refresh is currently in progress.
     if (refreshTokenFuture != null) {
-      logger.info('AuthInterceptor: Pausing request to ${options.path} while token is refreshing.');
+      logger.info(
+        'AuthInterceptor: Pausing request to ${options.path} while token is refreshing.',
+      );
       await refreshTokenFuture;
     }
 
@@ -113,12 +126,18 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
       // Check if the token was already refreshed while this request was in flight.
       // ignore: deprecated_member_use_from_same_package
       final currentToken = await TokensManager.instance.retrieveAccess();
-      final requestToken = options.headers['Authorization']?.toString().replaceFirst('Bearer ', '');
+      final requestToken = options.headers['Authorization']
+          ?.toString()
+          .replaceFirst('Bearer ', '');
 
-      if (currentToken != null && requestToken != null && currentToken != requestToken) {
-        logger.info('AuthInterceptor: Token was already refreshed by another request. Retrying immediately.');
+      if (currentToken != null &&
+          requestToken != null &&
+          currentToken != requestToken) {
+        logger.info(
+          'AuthInterceptor: Token was already refreshed by another request. Retrying immediately.',
+        );
         options.headers['Authorization'] = 'Bearer $currentToken';
-        
+
         // Handle FormData and clone MultipartFiles if necessary
         if (options.data is FormData) {
           final oldFormData = options.data as FormData;
@@ -129,7 +148,7 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
           }
           options.data = FormData.fromMap(newFormDataMap);
         }
-        
+
         try {
           final response = await _dio.fetch(options);
           return handler.resolve(response);
@@ -153,8 +172,11 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
         final newAccessToken = await refreshTokenFuture;
 
         if (newAccessToken == null) {
-          // If refresh failed, logout the user and propagate the original error.
-          logger.info('AuthInterceptor: Token refresh failed. Logging out.');
+          // If refresh failed, notify the client and propagate the original error.
+          // Tokens are left intact — the client decides whether to clearSession.
+          logger.info(
+            'AuthInterceptor: Token refresh failed. Notifying client.',
+          );
           await _handleRefreshFailure();
           return handler.next(err);
         }
@@ -248,11 +270,17 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
       ),
     )..interceptors.addAll([LogInterceptor()]);
 
+    final testAdapter = debugRefreshHttpClientAdapter;
+    if (testAdapter != null) {
+      refreshDio.httpClientAdapter = testAdapter;
+    }
+
     try {
       logger.info('AuthInterceptor: Sending refresh token request...');
       final response = await refreshDio.post(
         Configuration.refreshUrl,
-        data: Configuration.refreshData ??
+        data:
+            Configuration.refreshData ??
             {Configuration.refreshTokenKeyName: refreshToken},
       );
 
@@ -307,20 +335,17 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
     }
   }
 
-  /// Handles the common logic for a failed token refresh.
+  /// Notifies the client that token refresh failed.
   ///
-  /// This clears all stored tokens, user data, Dio headers, emits
-  /// [AuthManagerEventType.sessionExpired] and [AuthManagerEventType.loggedOut],
-  /// and triggers app-wide callbacks.
+  /// Does **not** clear tokens or log the user out. Emits
+  /// [AuthManagerEventType.sessionExpired] and invokes the session-expired /
+  /// show-message callbacks so the host app can decide whether to call
+  /// [AuthManager.clearSession] (or logout).
   Future<void> _handleRefreshFailure([Object? error]) async {
     if (_isHandlingRefreshFailure) return;
     _isHandlingRefreshFailure = true;
 
     try {
-      // 1. Clear session, tokens, user data, and Dio headers
-      await AuthManager.instance.clearSession();
-
-      // 2. Emit sessionExpired event on auth stream
       AuthManager.instance.emitAuthManagerEvent(
         AuthManagerStreamEvent(
           AuthManagerEventType.sessionExpired,
@@ -328,16 +353,12 @@ class AuthInterceptor extends Interceptor with NetworkClientLoggerMixin {
         ),
       );
 
-      // 3. User-facing message callback
       const message = 'Your session has expired. Please log in again.';
       _onShowMessage?.call(message);
       Configuration.onShowMessage?.call(message);
 
-      // 4. Trigger app-wide logout callbacks
-      await _onLogout?.call();
       await _onSessionExpired?.call();
       await Configuration.onSessionExpired?.call();
-      await Configuration.onLogout?.call();
     } catch (e) {
       logger.error('AuthInterceptor: Error during _handleRefreshFailure: $e');
     } finally {

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:api_client/api_client.dart';
-import 'package:api_client/src/utils/auth_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -154,61 +153,6 @@ void main() {
       expect(await auth.me(), isNull);
     });
 
-    test('AuthInterceptor triggers callbacks and emits sessionExpired on refresh failure', () async {
-      final tokens = TokensManager.instance;
-      final userMgr = StorageManager.instance;
-
-      await tokens.saveAccess('expired-access');
-      // No refresh token available, so refresh will fail
-      await tokens.removeRefresh();
-      await userMgr.save(jsonEncode({'user': 'Bob'}));
-
-      bool onSessionExpiredCalled = false;
-      bool onLogoutCalled = false;
-      String? shownMessage;
-
-      final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com'));
-      final interceptor = AuthInterceptor(
-        dio,
-        onLogout: () async => onLogoutCalled = true,
-        onSessionExpired: () async => onSessionExpiredCalled = true,
-        onShowMessage: (msg) => shownMessage = msg,
-      );
-
-      final events = <AuthManagerEventType>[];
-      final sub = AuthManager.instance.authManagerStream.listen((event) {
-        events.add(event.type);
-      });
-
-      // Simulate 401 error reaching interceptor
-      final reqOptions = RequestOptions(
-        path: '/protected/resource',
-        headers: {'Authorization': 'Bearer expired-access'},
-        extra: {'authenticated': true},
-      );
-      final dioErr = DioException(
-        requestOptions: reqOptions,
-        response: Response(requestOptions: reqOptions, statusCode: 401),
-      );
-
-      var nextCalled = false;
-      final handler = _TestErrorHandler((_) => nextCalled = true);
-      interceptor.onError(dioErr, handler);
-
-      // Wait for async refresh and failure handling
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-
-      expect(nextCalled, isTrue);
-      expect(onSessionExpiredCalled, isTrue);
-      expect(onLogoutCalled, isTrue);
-      expect(shownMessage, contains('session has expired'));
-      expect(events, contains(AuthManagerEventType.sessionExpired));
-      expect(await tokens.retrieveAccess(), isNull);
-      expect(await userMgr.retrive(), isNull);
-
-      await sub.cancel();
-    });
-
     test('NetworkClient getters allow accessing Dio via dio.instance, dio, client, and instance.dioClient', () {
       NetworkClient(baseUrl: 'https://api.example.com');
 
@@ -233,14 +177,4 @@ void main() {
       expect(identical(NetworkClient.client, NetworkClient.dio), isTrue);
     });
   });
-}
-
-class _TestErrorHandler extends ErrorInterceptorHandler {
-  final void Function(DioException err) onNext;
-  _TestErrorHandler(this.onNext);
-
-  @override
-  void next(DioException err) {
-    onNext(err);
-  }
 }

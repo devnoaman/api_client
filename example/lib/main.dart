@@ -13,7 +13,7 @@ void main() async {
   // iOS simulator  → use 127.0.0.1
   // Android emulator → use 10.0.2.2
   // Web (Flutter web) → use localhost
-  Configuration.baseUrl = 'http://localhost:3000';
+  Configuration.baseUrl = 'http://localhost:3015';
 
   // The test server returns { "accessToken": "...", "refreshToken": "..." }
   Configuration.tokenKeyName = 'accessToken';

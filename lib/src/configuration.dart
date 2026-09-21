@@ -29,9 +29,10 @@ class Configuration {
   static CertificatePinningConfig? certificatePinning;
 
   /// Global callback invoked when a session expires (e.g. token refresh fails).
+  /// The host app should decide whether to clear the session / navigate to login.
   static Future<void> Function()? onSessionExpired;
 
-  /// Global callback invoked when the user is logged out.
+  /// Global callback invoked when the user is logged out (e.g. after [AuthManager.logout]).
   static Future<void> Function()? onLogout;
 
   /// Global callback to display a user-facing session message.
