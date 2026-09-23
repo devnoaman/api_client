@@ -9,6 +9,34 @@ typedef AuthenticationDecoder<T> = T Function(dynamic data);
 typedef LoginDecoder<T> = T Function(dynamic data);
 typedef RefreshErrorHandler<T> = void Function(T data);
 
+/// A typed result for authentication operations ([loginWithResult], [signUpWithResult]).
+sealed class AuthResult<T> {
+  const AuthResult();
+}
+
+/// The authentication call succeeded.
+class AuthSuccess<T> extends AuthResult<T> {
+  final T data;
+  final int statusCode;
+  const AuthSuccess(this.data, {this.statusCode = 200});
+
+  @override
+  String toString() => 'AuthSuccess(statusCode: $statusCode, data: $data)';
+}
+
+/// The authentication call failed.
+class AuthFailure<T> extends AuthResult<T> {
+  final Object error;
+  final StackTrace? stackTrace;
+  final int? statusCode;
+  final dynamic rawData;
+  const AuthFailure(this.error, {this.stackTrace, this.statusCode, this.rawData});
+
+  @override
+  String toString() =>
+      'AuthFailure(statusCode: $statusCode, error: $error)';
+}
+
 // AuthManagerStreamEvent
 
 enum AuthManagerEventType {
@@ -142,6 +170,141 @@ class AuthManager {
     }
   }
 
+  /// Like [login], but returns an [AuthResult] instead of throwing on failure.
+  ///
+  /// On success the decoded value is wrapped in [AuthSuccess].
+  /// On failure the error is wrapped in [AuthFailure] – callers can
+  /// pattern-match without try/catch.
+  Future<AuthResult<T>> loginWithResult<T>({
+    required String path,
+    required Map<String, dynamic> data,
+    bool enableLogs = true,
+    required AuthenticationDecoder<T> decoder,
+    bool rememberMe = true,
+  }) async {
+    final client = NetworkClient().dioClient;
+    try {
+      final response = await client.post(
+        path,
+        data: data,
+        options: Options(
+          headers: Configuration.headers,
+          extra: {'enableLogs': enableLogs},
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        var token = findAccessToken(response.data);
+        var refreshToken = findRefreshToken(response.data);
+
+        tokensManager.rememberMe = rememberMe;
+        userManager.rememberMe = rememberMe;
+
+        logger.debug('token founded: $token');
+        if (token != null) {
+          await tokensManager.saveAccess(token.toString());
+        }
+        if (refreshToken != null) {
+          await tokensManager.saveRefresh(refreshToken.toString());
+        }
+        await userManager.save(jsonEncode(response.data));
+        emitAuthManagerEvent(
+          AuthManagerStreamEvent(
+            AuthManagerEventType.loggedIn,
+            data: response.data,
+          ),
+        );
+        final decoded = decoder(response.data);
+        return AuthSuccess<T>(decoded, statusCode: response.statusCode ?? 200);
+      }
+      return AuthFailure<T>(
+        Exception('Login failed with status code: ${response.statusCode}'),
+        statusCode: response.statusCode,
+        rawData: response.data,
+      );
+    } on DioException catch (e, st) {
+      logger.error('Dio error on POST request to $path: ${e.message}');
+      return AuthFailure<T>(
+        e,
+        stackTrace: st,
+        statusCode: e.response?.statusCode,
+        rawData: e.response?.data,
+      );
+    } catch (e, st) {
+      logger.error('Unexpected error on POST request to $path: $e');
+      logger.error(st.toString());
+      return AuthFailure<T>(e, stackTrace: st);
+    }
+  }
+
+  /// Like [loginWithResult], but intended for sign-up / registration flows.
+  ///
+  /// The network call and token handling are identical; the method exists as a
+  /// separate entry point so call-sites read more naturally and so that the
+  /// emitted [AuthManagerStreamEvent] can be distinguished in the future if
+  /// needed.
+  Future<AuthResult<T>> signUpWithResult<T>({
+    required String path,
+    required Map<String, dynamic> data,
+    bool enableLogs = true,
+    required AuthenticationDecoder<T> decoder,
+    bool rememberMe = true,
+  }) async {
+    final client = NetworkClient().dioClient;
+    try {
+      final response = await client.post(
+        path,
+        data: data,
+        options: Options(
+          headers: Configuration.headers,
+          extra: {'enableLogs': enableLogs},
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        var token = findAccessToken(response.data);
+        var refreshToken = findRefreshToken(response.data);
+
+        tokensManager.rememberMe = rememberMe;
+        userManager.rememberMe = rememberMe;
+
+        logger.debug('token founded: $token');
+        if (token != null) {
+          await tokensManager.saveAccess(token.toString());
+        }
+        if (refreshToken != null) {
+          await tokensManager.saveRefresh(refreshToken.toString());
+        }
+        await userManager.save(jsonEncode(response.data));
+        emitAuthManagerEvent(
+          AuthManagerStreamEvent(
+            AuthManagerEventType.loggedIn,
+            data: response.data,
+          ),
+        );
+        final decoded = decoder(response.data);
+        return AuthSuccess<T>(decoded, statusCode: response.statusCode ?? 200);
+      }
+      return AuthFailure<T>(
+        Exception('Sign-up failed with status code: ${response.statusCode}'),
+        statusCode: response.statusCode,
+        rawData: response.data,
+      );
+    } on DioException catch (e, st) {
+      logger.error('Dio error on POST request to $path: ${e.message}');
+      return AuthFailure<T>(
+        e,
+        stackTrace: st,
+        statusCode: e.response?.statusCode,
+        rawData: e.response?.data,
+      );
+    } catch (e, st) {
+      logger.error('Unexpected error on POST request to $path: $e');
+      logger.error(st.toString());
+      return AuthFailure<T>(e, stackTrace: st);
+    }
+  }
+
   // tokenData
   // apiClient
   Object? findAccessToken(dynamic data) {
@@ -213,9 +376,11 @@ class AuthManager {
     token ??= await tokensManager.retrieveAccess();
 
     try {
-      var ob = Options(headers: {
-        if (token != null) 'Authorization': 'Bearer $token',
-      });
+      var ob = Options(
+        headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
       var response = await client.post(
         path,
         data: data ?? Configuration.logoutData,
