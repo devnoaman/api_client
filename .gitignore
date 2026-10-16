@@ -29,3 +29,15 @@ migrate_working_dir/
 .flutter-plugins
 .flutter-plugins-dependencies
 build/
+
+# graphify / local agent tooling (regenerate locally; do not commit)
+graphify-out/
+.claude/
+.cursor/
+
+# iOS / Xcode noise from example app
+example/ios/Podfile.lock
+example/ios/**/Package.resolved
+example/**/*.xcuserstate
+example/**/xcuserdata/
+

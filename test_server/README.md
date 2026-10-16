@@ -28,6 +28,7 @@ ACCESS_TTL_MS=10000 node test_server/server.js   # token expires in 10s
 | GET    | `/users`         | ✓     | List all users                     |
 | GET    | `/users/:id`     | ✓     | Get a user by ID                   |
 | POST   | `/users`         | ✓     | Create a user (returns 201)        |
+| POST   | `/agent/chat`    | ✓     | Stream AI agent chunks (SSE/NDJSON)|
 
 ---
 
@@ -65,6 +66,16 @@ curl -s -X POST http://localhost:3000/auth/refresh \
 ```bash
 curl -s http://localhost:3000/public/ping | jq
 ```
+
+### 6. Agent chat stream (SSE)
+```bash
+curl -N -X POST 'http://localhost:3015/agent/chat?format=sse' \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Hello agent"}'
+```
+
+Use `?format=ndjson` for newline-delimited JSON chunks.
 
 ---
 

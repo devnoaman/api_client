@@ -1,3 +1,4 @@
+import 'package:example/features/agent/agent_chat_view.dart';
 import 'package:example/features/login/providers/account_provider.dart';
 import 'package:example/features/login/presentation/login_view.dart';
 import 'package:example/features/manual_token/manual_token_view.dart';
@@ -12,7 +13,7 @@ class UsersView extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('api_client Demo'),
@@ -20,6 +21,7 @@ class UsersView extends HookConsumerWidget {
             tabs: [
               Tab(icon: Icon(Icons.people), text: 'Users (AuthManager)'),
               Tab(icon: Icon(Icons.vpn_key), text: 'Manual Token Test'),
+              Tab(icon: Icon(Icons.smart_toy), text: 'Agent Stream'),
             ],
           ),
           actions: [
@@ -41,6 +43,7 @@ class UsersView extends HookConsumerWidget {
           children: [
             _UsersTab(),
             ManualTokenView(),
+            AgentChatView(),
           ],
         ),
       ),

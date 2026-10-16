@@ -10,6 +10,7 @@
  *   GET  /users               - Protected (requires Bearer token)
  *   GET  /users/:id           - Protected, returns a single user
  *   POST /users               - Protected, creates a user (returns 201)
+ *   POST /agent/chat          - Protected, streams AI agent chunks (SSE or NDJSON)
  *
  * Tokens are simple signed strings — no JWT library needed.
  * Access token expires in 30 seconds (configurable via ACCESS_TTL_MS).
@@ -258,6 +259,113 @@ async function handleCreateUser(req, res) {
   send(res, 201, newUser);
 }
 
+/**
+ * POST /agent/chat
+ * Streams fake AI agent message chunks.
+ *
+ * Format selection (first match wins):
+ *   1. ?format=sse|ndjson
+ *   2. Accept: text/event-stream → sse
+ *   3. Accept: application/x-ndjson → ndjson
+ *   4. default: sse
+ *
+ * Body: { "prompt": "..." }
+ *
+ * SSE contract (event names matter):
+ *   event: meta   → session / run metadata
+ *   event: delta  → text token
+ *   event: part   → part boundary (optional)
+ *   event: done   → stream finished
+ *   data: [DONE]  → OpenAI-style terminator (also accepted by the client)
+ *
+ * NDJSON: same payloads with an "event" field on each line.
+ */
+async function handleAgentChat(req, res) {
+  const record = requireAuth(req, res);
+  if (!record) return;
+
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const body = await readBody(req);
+  const prompt = (body.prompt ?? '').toString().trim() || 'Hello';
+
+  const accept = (req.headers['accept'] ?? '').toLowerCase();
+  let format = (url.searchParams.get('format') ?? '').toLowerCase();
+  if (format !== 'sse' && format !== 'ndjson') {
+    if (accept.includes('text/event-stream')) format = 'sse';
+    else if (accept.includes('application/x-ndjson') || accept.includes('ndjson')) format = 'ndjson';
+    else format = 'sse';
+  }
+
+  const words = `You asked: "${prompt}". Here is a streamed reply from the test agent about api_client streaming.`
+    .split(/(\s+)/)
+    .filter(Boolean);
+
+  log(`Agent chat stream (${format}) for prompt="${prompt.slice(0, 40)}…" — ${words.length} chunks`);
+
+  if (format === 'ndjson') {
+    res.writeHead(200, {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+  } else {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+  }
+
+  const writeFrame = (eventName, payload) => {
+    if (format === 'ndjson') {
+      res.write(JSON.stringify({ event: eventName, ...payload }) + '\n');
+    } else {
+      res.write(`event: ${eventName}\n`);
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    }
+  };
+
+  let closed = false;
+  req.on('close', () => { closed = true; });
+
+  writeFrame('meta', {
+    sessionId: `sess-${Date.now()}`,
+    model: 'test-agent',
+    prompt,
+  });
+
+  for (let i = 0; i < words.length; i++) {
+    if (closed) return;
+    if (i > 0 && i % 8 === 0) {
+      writeFrame('part', { index: Math.floor(i / 8), reason: 'boundary' });
+    }
+    writeFrame('delta', {
+      id: `chunk-${i}`,
+      role: 'assistant',
+      delta: words[i],
+      index: i,
+    });
+    await new Promise(r => setTimeout(r, 40));
+  }
+
+  if (closed) return;
+
+  writeFrame('done', {
+    id: `chunk-${words.length}`,
+    role: 'assistant',
+    delta: '',
+    index: words.length,
+    done: true,
+  });
+
+  if (format === 'sse') {
+    res.write('data: [DONE]\n\n');
+  }
+  res.end();
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 async function router(req, res) {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -280,6 +388,7 @@ async function router(req, res) {
     if (method === 'GET' && path === '/public/ping') return handlePing(req, res);
     if (method === 'GET' && path === '/users') return handleListUsers(req, res);
     if (method === 'POST' && path === '/users') return await handleCreateUser(req, res);
+    if (method === 'POST' && path === '/agent/chat') return await handleAgentChat(req, res);
 
     // GET /users/:id
     const userMatch = path.match(/^\/users\/([^/]+)$/);
@@ -310,4 +419,5 @@ http.createServer(router).listen(PORT, () => {
   log('  GET  /users               (Bearer token required)');
   log('  GET  /users/:id           (Bearer token required)');
   log('  POST /users               {"name":"...","email":"..."}');
+  log('  POST /agent/chat          {"prompt":"..."}  ?format=sse|ndjson (Bearer required)');
 });

@@ -11,6 +11,8 @@ A robust, configurable Flutter package that simplifies HTTP networking by wrappi
 - **Automatic Token Handling**: Interceptors for automatically appending access tokens and handling token refresh workflows.
 - **Secure Storage**: Integrated `flutter_secure_storage` to safely store user data, access tokens, and refresh tokens.
 - **Third-Party Integrations**: Easily add Sentry error tracking (`sentry_dio`) and advanced logging (`awesome_dio_interceptor`).
+- **AI / Agent Streaming**: `BaseController.stream` / `streamWithResult` for SSE and NDJSON chunked responses (agent messages, token streams).
+- **AI / agent streaming**: `BaseController.stream` / `streamWithResult` for SSE and NDJSON chunked responses (no full-body buffering).
 
 ## Getting started
 
@@ -128,6 +130,56 @@ AuthManager.instance.authManagerStream.listen((event) {
   }
 });
 ```
+
+### 4. Streaming AI agent messages (SSE / NDJSON)
+
+For long-lived chunked responses, use `stream()` or `streamWithResult()` instead of `call()`. The body is read incrementally (`ResponseType.stream`); receive timeout defaults to **no timeout** so agent replies are not cut off.
+
+```dart
+base class AgentChatController extends BaseController<AgentChunk> {
+  AgentChatController({required String prompt, CancelToken? cancelToken})
+      : super(
+          path: '/agent/chat',
+          method: HTTPMethod.post,
+          authenticated: true,
+          data: {'prompt': prompt},
+          streamFormat: StreamFormat.sse, // or StreamFormat.ndjson
+          cancelToken: cancelToken,
+          responseDecoder: (data) => AgentChunk.fromFrame(
+            StreamEventFrame(data: Map<String, dynamic>.from(data as Map)),
+          ),
+          // Frame includes SSE event: name (meta / delta / part / done) + data
+          chunkDecoder: AgentChunk.fromFrame,
+        );
+}
+
+final cancel = CancelToken();
+await for (final event in AgentChatController(prompt: 'Hi', cancelToken: cancel)
+    .streamWithResult()) {
+  switch (event) {
+    case StreamChunk(:final data, event: final sseEvent):
+      // sseEvent / data.event → meta | delta | part | done
+      break;
+    case StreamDone():
+      // stream finished cleanly (including SSE `data: [DONE]`)
+      break;
+    case StreamFailed(:final error):
+      // handle error — mid-stream 401 is not retried; listen for sessionExpired
+      break;
+  }
+}
+
+// Stop early:
+cancel.cancel();
+```
+
+Notes:
+
+- Prefer `streamReceiveTimeout: Duration.zero` (the default) for open streams.
+- Cancel with the same `CancelToken` you passed into the controller.
+- A 401 on an **open** stream fails the stream; it does not silently replay the stream after refresh.
+
+See the **Agent Stream** tab in `/example` and `POST /agent/chat` on the local `test_server`.
 
 ## Additional information
 
