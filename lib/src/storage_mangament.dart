@@ -12,6 +12,7 @@ class StorageManager {
   static Future<void> Function()? onRemove;
 
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
     webOptions: WebOptions(
       dbName: 'user_db',
       publicKey: 'user_db',

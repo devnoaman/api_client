@@ -67,6 +67,7 @@ class TokensManager {
   }
 
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
     webOptions: WebOptions(
       dbName: 'tokens_db',
       publicKey: 'tokens_db',
